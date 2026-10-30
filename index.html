@@ -1,46 +1,566 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Замени этот заголовок</title>
+<title>Таймеры до событий</title>
 <style>
-  :root { --bg: #fbfbfa; --fg: #1a1a18; --dim: #6b6b66; --line: #e4e4e0; }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #16161a; --fg: #f0f0ee; --dim: #9a9a95; --line: #2e2e34; }
+  :root {
+    --bg: #fbfbfa; --fg: #1a1a18; --dim: #6b6b66; --line: #e4e4e0; --card: #ffffff;
+    --blue: #2563eb; --red: #dc2626;
   }
+  html[data-theme="dark"] {
+    --bg: #16161a; --fg: #f0f0ee; --dim: #9a9a95; --line: #2e2e34; --card: #1f1f25;
+  }
+  /* Цвет страницы: смешиваем выбранный цвет с фоном темы */
+  /* Фон — 35% цвета, карточки слабее, чтобы текст в них хорошо читался */
+  html[data-color] { --bg: color-mix(in srgb, var(--tint) 35%, #fbfbfa); --card: color-mix(in srgb, var(--tint) 10%, #ffffff); }
+  html[data-color][data-theme="dark"] { --bg: color-mix(in srgb, var(--tint) 35%, #16161a); --card: color-mix(in srgb, var(--tint) 14%, #1f1f25); }
+
+  html[data-size="small"]  { font-size: 14px; }
+  html[data-size="medium"] { font-size: 16px; }
+  html[data-size="large"]  { font-size: 20px; }
+
   * { box-sizing: border-box; }
+  /* Полоса прокрутки появляется сама, только если страница не помещается на экран */
+  html { overscroll-behavior: none; }
   body {
-    margin: 0; padding: 48px 16px; background: var(--bg); color: var(--fg);
-    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    display: flex; justify-content: center;
+    margin: 0; padding: 16px 16px 72px; background: var(--bg); color: var(--fg);
+    font: 1rem/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   }
-  main { max-width: 34rem; width: 100%; }
-  h1 { font-size: 1.75rem; line-height: 1.2; margin: 0 0 .75rem; }
-  p { margin: 0 0 1rem; }
+  button, input, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  svg { width: 1.2em; height: 1.2em; display: block; }
+
+  /* ---------- Верхняя панель ---------- */
+  header { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }
+  .icon-btn {
+    border: 1px solid var(--line); background: var(--card); border-radius: 8px;
+    padding: 6px 8px; display: inline-flex; align-items: center; justify-content: center;
+  }
+  /* Одна панель: языки | размер текста | тема */
+  .panel {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 4px 6px;
+  }
+  .sep { width: 1px; align-self: stretch; margin: 4px 0; background: var(--line); }
+  .codes { display: flex; gap: 2px; }
+  .codes button {
+    border: 0; background: none; padding: 4px 7px; border-radius: 6px;
+    font-size: .8rem; font-weight: 600; color: var(--dim);
+  }
+  .codes button.on { background: var(--fg); color: var(--bg); }
+  #themeBtn { border: 0; background: none; padding: 4px 6px; }
+
+  /* Размер текста: три буквы «A». Их размер в px, чтобы буквы не прыгали при выборе */
+  .size { display: flex; align-items: center; gap: 2px; }
+  .size button {
+    width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent;
+    background: none; color: var(--dim); font-weight: 600; line-height: 1; padding: 0;
+  }
+  .size button[data-size="small"]  { font-size: 12px; }
+  .size button[data-size="medium"] { font-size: 15px; }
+  .size button[data-size="large"]  { font-size: 19px; }
+  .size button.on { background: var(--fg); border-color: var(--fg); color: var(--bg); }
+
+  /* ---------- Основная часть ---------- */
+  main { max-width: 40rem; margin: 24px auto 0; }
+  h1 { font-size: 1.75rem; line-height: 1.2; margin: 0 0 1rem; }
   .dim { color: var(--dim); }
-  .box { border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; margin-top: 28px; }
-  code { background: var(--line); padding: .1em .35em; border-radius: 4px; font-size: .9em; }
+  .note-small { font-size: .85rem; color: var(--dim); margin: 0 0 1rem; }
+
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { border: 0; background: var(--card); padding: 4px 10px; font-size: .85rem; }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button.on { background: var(--fg); color: var(--bg); }
+
+  form { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .field { margin-bottom: 14px; }
+  /* Между названием и датой — пустая строка (высота строки 1.5rem) */
+  .field:first-child { margin-bottom: 1.5rem; }
+  .field > label { display: block; font-weight: 600; margin-bottom: 4px; }
+  /* Надпись «Дата события» слева, переключатель формата справа, низ на одной линии */
+  .date-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+  .date-row label { font-weight: 600; }
+  input[type="text"], textarea {
+    width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--bg);
+  }
+  .error { color: var(--red); font-size: .85rem; min-height: 1.2em; margin: 0 0 8px; }
+
+  .btn-blue, .btn-red { border: 0; border-radius: 8px; padding: 8px 16px; color: #fff; font-weight: 600; }
+  .btn-blue { background: var(--blue); }
+  form .btn-blue { width: 100%; }
+  .btn-red  { background: var(--red); }
+
+  /* ---------- Таймеры ---------- */
+  #list { list-style: none; padding: 0; margin: 20px 0 0; display: flex; flex-direction: column; gap: 12px; }
+  .timer { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .timer h2 { font-size: 1.15rem; margin: 0; overflow-wrap: anywhere; }
+  .timer .when { font-size: .85rem; color: var(--dim); margin: 0 0 10px; }
+  .units { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; text-align: center; }
+  .units[hidden] { display: none; }
+  .units b { display: block; font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+  .units span { font-size: .7rem; color: var(--dim); }
+  .passed { color: var(--dim); font-weight: 600; }
+  .actions { display: flex; gap: 8px; margin-top: 12px; align-items: center; }
+  .actions .btn-blue { padding: 6px 14px; font-size: 1.1rem; line-height: 1; }
+  .actions .btn-red { margin-left: auto; padding: 6px 14px; }
+  @media (max-width: 420px) { .units { grid-template-columns: repeat(3, 1fr); } }
+
+  /* ---------- Окна ---------- */
+  dialog {
+    width: min(30rem, calc(100vw - 32px)); border: 1px solid var(--line); border-radius: 12px;
+    background: var(--card); color: var(--fg); padding: 16px;
+  }
+  dialog::backdrop { background: rgba(0,0,0,.4); }
+  .dlg-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .dlg-head h3 { margin: 0; font-size: 1.1rem; overflow-wrap: anywhere; }
+  textarea { min-height: 9rem; resize: vertical; margin-bottom: 10px; }
+  .read { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
+
+  /* ---------- Цвет страницы (справа снизу) ---------- */
+  #colorBtn { position: fixed; right: 16px; bottom: 16px; border-radius: 50%; padding: 12px; z-index: 20; }
+  #palette {
+    position: fixed; right: 16px; bottom: 72px; z-index: 20; width: 15rem;
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px;
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px;
+  }
+  #palette[hidden] { display: none; }
+  #palette button { aspect-ratio: 1; border-radius: 50%; border: 2px solid transparent; }
+  #palette button.on { border-color: var(--fg); }
+  #palette .reset { grid-column: 1 / -1; aspect-ratio: auto; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); padding: 4px; font-size: .85rem; }
 </style>
 </head>
 <body>
-<main>
 
-  <h1>Страница работает</h1>
-
-  <p>Если ты это читаешь в интернете, а не у себя на компьютере, — значит весь путь уже собран:
-  репозиторий есть, страница опубликована, ссылку можно кинуть другу.</p>
-
-  <p class="dim">Это всё, что здесь должно быть. Содержимое придумаешь ты, а сделает ИИ.</p>
-
-  <div class="box">
-    <p><strong>Твой следующий ход.</strong></p>
-    <p>Открой <code>zadanie-1.md</code> и напиши, какую страницу ты хочешь — <strong>до того</strong>, как попросишь ИИ.
-    Потом попроси. Потом запусти <code>./check.sh</code>.</p>
-    <p class="dim">Проверка сейчас краснеет на заголовке этой страницы: он так и называется
-    «Замени этот заголовок». Это нарочно.</p>
+<header>
+  <!-- Справа сверху одна панель: 6 кодов языков | размер текста | тема -->
+  <div class="panel">
+    <div class="codes" id="codes"></div>
+    <span class="sep"></span>
+    <div class="size" id="sizeSeg" role="group">
+      <button type="button" data-size="small">A</button>
+      <button type="button" data-size="medium">A</button>
+      <button type="button" data-size="large">A</button>
+    </div>
+    <span class="sep"></span>
+    <button class="icon-btn" id="themeBtn" type="button"></button>
   </div>
+</header>
 
+<main>
+  <h1 data-t="title"></h1>
+  <p class="note-small" id="fallback" hidden data-t="notTranslated"></p>
+
+  <form id="form" novalidate>
+    <div class="field">
+      <label for="name" data-t="nameLabel"></label>
+      <input id="name" type="text">
+    </div>
+    <div class="field">
+      <div class="date-row">
+        <label for="date" data-t="dateLabel"></label>
+        <div class="seg" id="fmtSeg">
+          <button type="button" data-fmt="mdy">mm/dd/yyyy</button>
+          <button type="button" data-fmt="dmy">dd/mm/yyyy</button>
+        </div>
+      </div>
+      <input id="date" type="text" inputmode="numeric">
+    </div>
+    <p class="error" id="error"></p>
+    <button class="btn-blue" type="submit" data-t="add"></button>
+  </form>
+
+  <ul id="list"></ul>
 </main>
+
+<!-- Окно заметки: пишем и сохраняем -->
+<dialog id="editDlg">
+  <div class="dlg-head">
+    <h3 id="editTitle"></h3>
+    <button class="icon-btn close" type="button">✕</button>
+  </div>
+  <textarea id="noteText"></textarea>
+  <button class="btn-blue" id="saveBtn" type="button" data-t="save"></button>
+</dialog>
+
+<!-- Окно просмотра: только читать -->
+<dialog id="viewDlg">
+  <div class="dlg-head">
+    <h3 id="viewTitle"></h3>
+    <button class="icon-btn close" type="button">✕</button>
+  </div>
+  <p class="read" id="viewText"></p>
+</dialog>
+
+<!-- Справа снизу: цвет страницы -->
+<button class="icon-btn" id="colorBtn" type="button">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c1 0 1.5-.8 1.5-1.5 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.8.7-1.5 1.5-1.5H16a5 5 0 0 0 5-5c0-4.4-4-7.8-9-7.8z"/><circle cx="7.5" cy="10.5" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="16.5" cy="10.5" r="1"/></svg>
+</button>
+<div id="palette" hidden></div>
+
+<script>
+/* ===== Тексты на 6 языках ===== */
+const T = {
+  ru: {
+    title: "Таймеры до событий", nameLabel: "Название события", dateLabel: "Дата события",
+    add: "Добавить", del: "Удалить",
+    units: ["годы", "месяцы", "дни", "часы", "минуты", "секунды"],
+    passed: "Событие уже наступило",
+    errName: "Напиши название события.", errDate: "Дата не подходит. Нужен формат ",
+    save: "Сохранить", note: "Заметка",
+    theme: "Светлая или тёмная тема", color: "Цвет страницы", noColor: "Без цвета",
+    textSize: "Размер текста:", small: "Маленький", medium: "Средний", large: "Большой",
+    addNote: "Добавить заметку", viewNote: "Посмотреть заметку",
+    notTranslated: "Перевода на этот язык пока нет — текст показан по-английски."
+  },
+  en: {
+    title: "Event countdowns", nameLabel: "Event name", dateLabel: "Event date",
+    add: "Add", del: "Delete",
+    units: ["years", "months", "days", "hours", "minutes", "seconds"],
+    passed: "The event has already happened",
+    errName: "Enter the event name.", errDate: "Invalid date. Use the format ",
+    save: "Save", note: "Note",
+    theme: "Light or dark theme", color: "Page color", noColor: "No color",
+    textSize: "Text size:", small: "Small", medium: "Medium", large: "Large",
+    addNote: "Add note", viewNote: "View note",
+    notTranslated: "This language is not translated yet — showing English."
+  },
+  zh: {
+    title: "活动倒计时", nameLabel: "活动名称", dateLabel: "活动日期",
+    add: "添加", del: "删除",
+    units: ["年", "月", "天", "小时", "分钟", "秒"],
+    passed: "活动已经开始",
+    errName: "请输入活动名称。", errDate: "日期无效。请使用格式 ",
+    save: "保存", note: "备注",
+    theme: "浅色或深色主题", color: "页面颜色", noColor: "无颜色",
+    textSize: "文字大小：", small: "小", medium: "中", large: "大",
+    addNote: "添加备注", viewNote: "查看备注",
+    notTranslated: "此语言暂无翻译，显示英文。"
+  },
+  ar: {
+    title: "العد التنازلي للأحداث", nameLabel: "اسم الحدث", dateLabel: "تاريخ الحدث",
+    add: "إضافة", del: "حذف",
+    units: ["سنوات", "أشهر", "أيام", "ساعات", "دقائق", "ثوانٍ"],
+    passed: "لقد حان الحدث بالفعل",
+    errName: "اكتب اسم الحدث.", errDate: "التاريخ غير صحيح. استخدم الصيغة ",
+    save: "حفظ", note: "ملاحظة",
+    theme: "سمة فاتحة أو داكنة", color: "لون الصفحة", noColor: "بدون لون",
+    textSize: "حجم النص:", small: "صغير", medium: "متوسط", large: "كبير",
+    addNote: "إضافة ملاحظة", viewNote: "عرض الملاحظة",
+    notTranslated: "لا توجد ترجمة لهذه اللغة بعد — يُعرض النص بالإنجليزية."
+  },
+  hi: {
+    title: "घटनाओं की उलटी गिनती", nameLabel: "घटना का नाम", dateLabel: "घटना की तारीख",
+    add: "जोड़ें", del: "हटाएँ",
+    units: ["साल", "महीने", "दिन", "घंटे", "मिनट", "सेकंड"],
+    passed: "घटना हो चुकी है",
+    errName: "घटना का नाम लिखें।", errDate: "तारीख गलत है। यह प्रारूप लिखें: ",
+    save: "सहेजें", note: "नोट",
+    theme: "हल्की या गहरी थीम", color: "पेज का रंग", noColor: "कोई रंग नहीं",
+    textSize: "अक्षर का आकार:", small: "छोटा", medium: "मध्यम", large: "बड़ा",
+    addNote: "नोट जोड़ें", viewNote: "नोट देखें",
+    notTranslated: "इस भाषा का अनुवाद अभी नहीं है — अंग्रेज़ी दिखाई जा रही है।"
+  },
+  es: {
+    title: "Cuenta atrás de eventos", nameLabel: "Nombre del evento", dateLabel: "Fecha del evento",
+    add: "Añadir", del: "Eliminar",
+    units: ["años", "meses", "días", "horas", "minutos", "segundos"],
+    passed: "El evento ya ha llegado",
+    errName: "Escribe el nombre del evento.", errDate: "Fecha no válida. Usa el formato ",
+    save: "Guardar", note: "Nota",
+    theme: "Tema claro u oscuro", color: "Color de la página", noColor: "Sin color",
+    textSize: "Tamaño del texto:", small: "Pequeño", medium: "Mediano", large: "Grande",
+    addNote: "Añadir nota", viewNote: "Ver nota",
+    notTranslated: "Este idioma aún no está traducido — se muestra en inglés."
+  }
+};
+const MAIN_CODES = ["ru", "en", "zh", "ar", "hi", "es"];
+
+/* ===== 25 цветов страницы ===== */
+const COLORS = [
+  "#ef4444","#f97316","#f59e0b","#eab308","#84cc16",
+  "#22c55e","#10b981","#14b8a6","#06b6d4","#0ea5e9",
+  "#3b82f6","#6366f1","#8b5cf6","#a855f7","#d946ef",
+  "#ec4899","#f43f5e","#78716c","#64748b","#a16207",
+  "#0f766e","#1e3a8a","#7c2d12","#365314","#831843"
+];
+
+/* ===== Сохранение в браузере ===== */
+function load(key, fallback) {
+  try { const v = localStorage.getItem(key); return v === null ? fallback : JSON.parse(v); }
+  catch (e) { return fallback; }
+}
+function store(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+}
+
+const state = {
+  timers: load("timers", []),                 // [{id, name, date: "yyyy-mm-dd", note}]
+  lang:   load("lang", "en"),
+  theme:  load("theme", "light"),
+  color:  load("color", null),
+  size:   load("size", "medium"),
+  fmt:    load("fmt", "dmy")
+};
+
+const $ = (id) => document.getElementById(id);
+const t = () => T[state.lang] || T.en;
+
+/* ===== Язык ===== */
+function applyLang() {
+  const tr = t();
+  document.documentElement.lang = state.lang;
+  document.documentElement.dir = (state.lang === "ar") ? "rtl" : "ltr";
+  document.title = tr.title;
+  document.querySelectorAll("[data-t]").forEach(el => { el.textContent = tr[el.dataset.t]; });
+  $("fallback").hidden = !!T[state.lang];
+  $("sizeSeg").setAttribute("aria-label", tr.textSize);
+  document.querySelectorAll("#sizeSeg button").forEach(b => {
+    b.title = tr[b.dataset.size]; b.setAttribute("aria-label", tr[b.dataset.size]);
+  });
+  $("themeBtn").title = tr.theme;   $("themeBtn").setAttribute("aria-label", tr.theme);
+  $("colorBtn").title = tr.color;   $("colorBtn").setAttribute("aria-label", tr.color);
+  document.querySelectorAll(".codes button").forEach(b => b.classList.toggle("on", b.dataset.code === state.lang));
+  renderPalette();
+  renderTimers();
+}
+function setLang(code) {
+  state.lang = code; store("lang", code);
+  applyLang();
+}
+
+// 6 языков кодами
+MAIN_CODES.forEach(code => {
+  const b = document.createElement("button");
+  b.type = "button"; b.textContent = code.toUpperCase(); b.dataset.code = code;
+  b.addEventListener("click", () => setLang(code));
+  $("codes").appendChild(b);
+});
+
+// Клик мимо палитры закрывает её
+document.addEventListener("click", (e) => {
+  if (!e.target.closest("#palette") && !e.target.closest("#colorBtn")) $("palette").hidden = true;
+});
+
+/* ===== Тема ===== */
+const SUN  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+const MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+function applyTheme() {
+  document.documentElement.dataset.theme = state.theme;
+  $("themeBtn").innerHTML = state.theme === "dark" ? SUN : MOON;
+}
+$("themeBtn").addEventListener("click", () => {
+  state.theme = state.theme === "dark" ? "light" : "dark";
+  store("theme", state.theme); applyTheme();
+});
+
+/* ===== Цвет страницы ===== */
+function applyColor() {
+  const root = document.documentElement;
+  if (state.color) { root.dataset.color = ""; root.style.setProperty("--tint", state.color); }
+  else { delete root.dataset.color; root.style.removeProperty("--tint"); }
+  document.querySelectorAll("#palette button[data-c]").forEach(b => b.classList.toggle("on", b.dataset.c === state.color));
+}
+function setColor(c) { state.color = c; store("color", c); applyColor(); }
+function renderPalette() {
+  const p = $("palette");
+  p.innerHTML = "";
+  COLORS.forEach(c => {
+    const b = document.createElement("button");
+    b.type = "button"; b.dataset.c = c; b.style.background = c; b.setAttribute("aria-label", c);
+    b.addEventListener("click", () => setColor(c));
+    p.appendChild(b);
+  });
+  const r = document.createElement("button");
+  r.type = "button"; r.className = "reset"; r.textContent = t().noColor;
+  r.addEventListener("click", () => setColor(null));
+  p.appendChild(r);
+  applyColor();
+}
+$("colorBtn").addEventListener("click", () => { $("palette").hidden = !$("palette").hidden; });
+
+/* ===== Размер текста ===== */
+function applySize() {
+  document.documentElement.dataset.size = state.size;
+  document.querySelectorAll("#sizeSeg button").forEach(b => b.classList.toggle("on", b.dataset.size === state.size));
+}
+document.querySelectorAll("#sizeSeg button").forEach(b => b.addEventListener("click", () => {
+  state.size = b.dataset.size; store("size", state.size); applySize();
+}));
+
+/* ===== Формат даты ===== */
+const fmtText = () => state.fmt === "mdy" ? "mm/dd/yyyy" : "dd/mm/yyyy";
+function applyFmt() {
+  $("date").placeholder = fmtText();
+  document.querySelectorAll("#fmtSeg button").forEach(b => b.classList.toggle("on", b.dataset.fmt === state.fmt));
+}
+document.querySelectorAll("#fmtSeg button").forEach(b => b.addEventListener("click", () => {
+  state.fmt = b.dataset.fmt; store("fmt", state.fmt); applyFmt(); renderTimers();
+}));
+
+// Разбираем "02/21/2019", "02.21.2019" или "02-21-2019" → "2019-02-21"
+function parseDate(text) {
+  const m = text.trim().match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+  if (!m) return null;
+  const a = +m[1], b = +m[2], y = +m[3];
+  const month = state.fmt === "mdy" ? a : b;
+  const day   = state.fmt === "mdy" ? b : a;
+  const d = new Date(y, month - 1, day);
+  if (d.getFullYear() !== y || d.getMonth() !== month - 1 || d.getDate() !== day) return null;
+  return y + "-" + String(month).padStart(2, "0") + "-" + String(day).padStart(2, "0");
+}
+function toDate(iso) { const [y, m, d] = iso.split("-").map(Number); return new Date(y, m - 1, d); }
+function showDate(iso) {
+  const [y, m, d] = iso.split("-");
+  return state.fmt === "mdy" ? m + "/" + d + "/" + y : d + "/" + m + "/" + y;
+}
+
+/* ===== Сколько осталось: годы, месяцы, дни, часы, минуты, секунды ===== */
+function addMonths(date, n) {
+  const d = new Date(date);
+  const day = d.getDate();
+  d.setDate(1);
+  d.setMonth(d.getMonth() + n);
+  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  d.setDate(Math.min(day, last));
+  return d;
+}
+function timeLeft(target) {
+  const now = new Date();
+  if (target <= now) return null;
+  let months = (target.getFullYear() - now.getFullYear()) * 12 + (target.getMonth() - now.getMonth());
+  if (addMonths(now, months) > target) months--;
+  let rest = Math.floor((target - addMonths(now, months)) / 1000);
+  const days = Math.floor(rest / 86400); rest -= days * 86400;
+  const hours = Math.floor(rest / 3600); rest -= hours * 3600;
+  const minutes = Math.floor(rest / 60);
+  const seconds = rest - minutes * 60;
+  return [Math.floor(months / 12), months % 12, days, hours, minutes, seconds];
+}
+
+/* ===== Список таймеров ===== */
+function saveTimers() { store("timers", state.timers); }
+
+function renderTimers() {
+  const list = $("list");
+  list.innerHTML = "";
+  const tr = t();
+  // Сверху ближайшие события, снизу самые дальние
+  const sorted = [...state.timers].sort((a, b) => a.date.localeCompare(b.date));
+
+  sorted.forEach(timer => {
+    const li = document.createElement("li");
+    li.className = "timer";
+    li.dataset.id = timer.id;
+
+    const h = document.createElement("h2");
+    h.textContent = timer.name;
+    const when = document.createElement("p");
+    when.className = "when";
+    when.textContent = showDate(timer.date);
+
+    const units = document.createElement("div");
+    units.className = "units";
+    tr.units.forEach(name => {
+      const cell = document.createElement("div");
+      cell.innerHTML = "<b>0</b><span></span>";
+      cell.querySelector("span").textContent = name;
+      units.appendChild(cell);
+    });
+    const passed = document.createElement("p");
+    passed.className = "passed";
+    passed.textContent = tr.passed;
+    passed.hidden = true;
+
+    const actions = document.createElement("div");
+    actions.className = "actions";
+
+    const plus = document.createElement("button");
+    plus.type = "button"; plus.className = "btn-blue"; plus.textContent = "+";
+    plus.title = tr.addNote; plus.setAttribute("aria-label", tr.addNote);
+    plus.addEventListener("click", () => openEdit(timer.id));
+    actions.appendChild(plus);
+
+    // Кнопка с глазом появляется, только если заметка сохранена
+    if (timer.note) {
+      const eye = document.createElement("button");
+      eye.type = "button"; eye.className = "icon-btn";
+      eye.title = tr.viewNote; eye.setAttribute("aria-label", tr.viewNote);
+      eye.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+      eye.addEventListener("click", () => openView(timer.id));
+      actions.appendChild(eye);
+    }
+
+    const del = document.createElement("button");
+    del.type = "button"; del.className = "btn-red"; del.textContent = tr.del;
+    del.addEventListener("click", () => {
+      state.timers = state.timers.filter(x => x.id !== timer.id);
+      saveTimers(); renderTimers();
+    });
+    actions.appendChild(del);
+
+    li.append(h, when, units, passed, actions);
+    list.appendChild(li);
+  });
+  tick();
+}
+
+// Каждую секунду обновляем только цифры
+function tick() {
+  document.querySelectorAll(".timer").forEach(li => {
+    const timer = state.timers.find(x => x.id === li.dataset.id);
+    if (!timer) return;
+    const left = timeLeft(toDate(timer.date));
+    li.querySelector(".units").hidden = !left;
+    li.querySelector(".passed").hidden = !!left;
+    if (left) li.querySelectorAll(".units b").forEach((b, i) => { b.textContent = left[i]; });
+  });
+}
+setInterval(tick, 1000);
+
+/* ===== Добавить таймер ===== */
+$("form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const tr = t();
+  const name = $("name").value;
+  if (!name.trim()) { $("error").textContent = tr.errName; return; }
+  const date = parseDate($("date").value);
+  if (!date) { $("error").textContent = tr.errDate + fmtText(); return; }
+  $("error").textContent = "";
+  state.timers.push({ id: String(Date.now()) + Math.random().toString(16).slice(2, 6), name, date, note: "" });
+  saveTimers();
+  $("name").value = ""; $("date").value = "";
+  renderTimers();
+});
+
+/* ===== Заметка: «+» и глаз ===== */
+let editingId = null;
+function openEdit(id) {
+  const timer = state.timers.find(x => x.id === id);
+  editingId = id;
+  $("editTitle").textContent = t().note + ": " + timer.name;
+  $("noteText").value = timer.note || "";
+  $("editDlg").showModal();
+}
+$("saveBtn").addEventListener("click", () => {
+  const timer = state.timers.find(x => x.id === editingId);
+  if (timer) { timer.note = $("noteText").value; saveTimers(); renderTimers(); }
+  $("editDlg").close();
+});
+function openView(id) {
+  const timer = state.timers.find(x => x.id === id);
+  $("viewTitle").textContent = t().note + ": " + timer.name;
+  $("viewText").textContent = timer.note;
+  $("viewDlg").showModal();
+}
+document.querySelectorAll("dialog .close").forEach(b => b.addEventListener("click", () => b.closest("dialog").close()));
+
+/* ===== Запуск ===== */
+applyTheme();
+applySize();
+applyFmt();
+applyLang();
+</script>
 </body>
 </html>
