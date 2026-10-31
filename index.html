@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Таймеры до событий</title>
+<!-- Аватарка сайта на вкладке браузера: часы на синем фоне -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232563eb'/%3E%3Ccircle cx='16' cy='16' r='10' fill='none' stroke='white' stroke-width='3'/%3E%3Cpath d='M16 10v6l4 3' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <style>
   :root {
     --bg: #fbfbfa; --fg: #1a1a18; --dim: #6b6b66; --line: #e4e4e0; --card: #ffffff;
@@ -204,6 +206,53 @@
   .dlg-btns { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
   textarea { min-height: 9rem; resize: vertical; margin-bottom: 10px; }
   .read { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
+  .dlg-tools { display: flex; gap: 6px; }
+
+  /* ---------- Чек-лист в окне заметки ---------- */
+  .checklist { list-style: none; padding: 0; margin: 0 0 10px; display: flex; flex-direction: column; gap: 6px; }
+  .checklist li { display: flex; align-items: center; gap: 8px; }
+  .checklist input[type="checkbox"] { width: 20px; height: 20px; margin: 0; flex: none; accent-color: var(--blue); cursor: pointer; }
+  .checklist input[type="text"] { padding: 6px 8px; }
+  /* Своя линия зачёркивания: всегда ровно посередине высоты текста */
+  /* Полоска 2px ровно на середине каждой строки текста (и если пункт переносится) */
+  .checklist .item-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .checklist .item-view.done {
+    color: var(--dim);
+    background: linear-gradient(currentColor, currentColor) 0 50% / 100% 2px no-repeat;
+    -webkit-box-decoration-break: clone; box-decoration-break: clone;
+  }
+  .checklist .item-edit { position: relative; flex: 1; min-width: 0; }
+  .checklist .item-edit.done input { color: var(--dim); }
+  .checklist .item-edit .line {
+    position: absolute; inset-inline-start: 9px; top: 50%; height: 2px; margin-top: -1px;
+    background: var(--dim); pointer-events: none;
+  }
+  #viewDlg .checklist { margin: 10px 0 0; }
+
+  /* ---------- Календарь месяца ---------- */
+  .cal-row { margin-bottom: 12px; }
+  .cal-nav { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+  .cal-nav h4 { flex: 1; margin: 0; font-size: 1rem; }
+  .cal-nav h4::first-letter { text-transform: uppercase; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .cal-wd { font-size: .7rem; color: var(--dim); text-align: center; text-transform: capitalize; }
+  .cal-day {
+    min-height: 3.2rem; min-width: 0; padding: 2px 4px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--bg); font-size: .8rem; text-align: start; display: flex; flex-direction: column; gap: 2px; overflow: hidden;
+  }
+  .cal-day.today .num { font-weight: 700; text-decoration: underline; }
+  /* День с одним событием: цвет и эмодзи таймера */
+  .cal-day.has { border: 2px solid var(--c, var(--dim)); background: color-mix(in srgb, var(--c, var(--dim)) 18%, var(--bg)); }
+  /* День с несколькими событиями: подсветка */
+  .cal-day.many { border: 2px solid var(--fg); background: color-mix(in srgb, #facc15 40%, var(--bg)); }
+  .cal-day .em { font-size: 1rem; line-height: 1.1; white-space: nowrap; overflow: hidden; }
+  .cal-day .dots { display: flex; gap: 2px; flex-wrap: wrap; }
+  .cal-day .dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--dim); }
+  #calDay { margin-top: 12px; }
+  #calDay h4 { margin: 0 0 6px; font-size: .95rem; }
+  #calDayList { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+  #calDayList li { padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; overflow-wrap: anywhere; }
+  #calDayList li.colored { border-inline-start: 5px solid var(--c); }
 
   /* Сообщение «Событие наступило»: не модальное, чтобы конфетти летели поверх */
   #celebDlg { position: fixed; inset: 0; margin: auto; height: fit-content; z-index: 60; box-shadow: 0 10px 40px rgba(0,0,0,.3); }
@@ -276,6 +325,9 @@
     <label class="check"><input type="checkbox" id="compact"><span data-t="compact"></span></label>
   </div>
   <div class="cats adv-only" id="cats"></div>
+  <div class="cal-row adv-only">
+    <button class="btn-line" type="button" id="calBtn" data-t="calendarBtn"></button>
+  </div>
 
   <ul class="list" id="list"></ul>
 
@@ -344,9 +396,16 @@
 <dialog id="editDlg">
   <div class="dlg-head">
     <h3 id="editTitle"></h3>
-    <button class="icon-btn close" type="button">✕</button>
+    <div class="dlg-tools">
+      <!-- Левее крестика: добавить ячейку чек-листа -->
+      <button class="icon-btn" type="button" id="addItemBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12l3 3 5-6"/></svg>
+      </button>
+      <button class="icon-btn close" type="button">✕</button>
+    </div>
   </div>
   <textarea id="noteText"></textarea>
+  <ul class="checklist" id="checkList"></ul>
   <button class="btn-blue" id="saveBtn" type="button" data-t="save"></button>
 </dialog>
 
@@ -357,6 +416,26 @@
     <button class="icon-btn close" type="button">✕</button>
   </div>
   <p class="read" id="viewText"></p>
+  <ul class="checklist" id="viewList"></ul>
+</dialog>
+
+<!-- Календарь месяца -->
+<dialog id="calDlg">
+  <div class="dlg-head">
+    <h3 data-t="calendarBtn"></h3>
+    <button class="icon-btn close" type="button">✕</button>
+  </div>
+  <div class="cal-nav">
+    <h4 id="calTitle"></h4>
+    <!-- Стрелка вверх — месяц назад, стрелка вниз — месяц вперёд -->
+    <button class="icon-btn" type="button" id="calPrev">▲</button>
+    <button class="icon-btn" type="button" id="calNext">▼</button>
+  </div>
+  <div class="cal-grid" id="calGrid"></div>
+  <div id="calDay" hidden>
+    <h4 id="calDayTitle"></h4>
+    <ul id="calDayList"></ul>
+  </div>
 </dialog>
 
 <!-- Окно «Изменить таймер» -->
@@ -442,7 +521,9 @@ const T = {
     exportBtn: "Сохранить в файл", importBtn: "Загрузить из файла",
     importAsk: "Заменить текущие таймеры или добавить к ним?", replace: "Заменить", append: "Добавить",
     badFile: "Файл не подходит", happened: "Событие «{name}» наступило!", ok: "ОК", close: "Закрыть",
-    adv: "Расширенные настройки"
+    adv: "Расширенные настройки",
+    calendarBtn: "Календарь месяца", prevMonth: "Месяц назад", nextMonth: "Месяц вперёд",
+    addItem: "Добавить пункт чек-листа", itemPh: "Пункт"
   },
   en: {
     title: "Event countdowns", nameLabel: "Event name", dateLabel: "Event date",
@@ -470,7 +551,9 @@ const T = {
     exportBtn: "Save to file", importBtn: "Load from file",
     importAsk: "Replace the current timers or add to them?", replace: "Replace", append: "Add",
     badFile: "This file doesn't fit", happened: "The event “{name}” has arrived!", ok: "OK", close: "Close",
-    adv: "Advanced settings"
+    adv: "Advanced settings",
+    calendarBtn: "Month calendar", prevMonth: "Previous month", nextMonth: "Next month",
+    addItem: "Add checklist item", itemPh: "Item"
   },
   zh: {
     title: "活动倒计时", nameLabel: "活动名称", dateLabel: "活动日期",
@@ -498,7 +581,9 @@ const T = {
     exportBtn: "保存到文件", importBtn: "从文件加载",
     importAsk: "替换当前的计时器，还是添加到其中？", replace: "替换", append: "添加",
     badFile: "文件不合适", happened: "活动“{name}”到了！", ok: "好", close: "关闭",
-    adv: "高级设置"
+    adv: "高级设置",
+    calendarBtn: "月历", prevMonth: "上个月", nextMonth: "下个月",
+    addItem: "添加清单项", itemPh: "事项"
   },
   ar: {
     title: "العد التنازلي للأحداث", nameLabel: "اسم الحدث", dateLabel: "تاريخ الحدث",
@@ -526,7 +611,9 @@ const T = {
     exportBtn: "حفظ في ملف", importBtn: "تحميل من ملف",
     importAsk: "هل تريد استبدال المؤقتات الحالية أم الإضافة إليها؟", replace: "استبدال", append: "إضافة",
     badFile: "الملف غير مناسب", happened: "لقد حان الحدث «{name}»!", ok: "حسنًا", close: "إغلاق",
-    adv: "إعدادات متقدمة"
+    adv: "إعدادات متقدمة",
+    calendarBtn: "تقويم الشهر", prevMonth: "الشهر السابق", nextMonth: "الشهر التالي",
+    addItem: "إضافة بند إلى القائمة", itemPh: "بند"
   },
   hi: {
     title: "घटनाओं की उलटी गिनती", nameLabel: "घटना का नाम", dateLabel: "घटना की तारीख",
@@ -554,7 +641,9 @@ const T = {
     exportBtn: "फ़ाइल में सहेजें", importBtn: "फ़ाइल से लोड करें",
     importAsk: "मौजूदा टाइमर बदलें या उनमें जोड़ें?", replace: "बदलें", append: "जोड़ें",
     badFile: "यह फ़ाइल सही नहीं है", happened: "घटना «{name}» आ गई!", ok: "ठीक है", close: "बंद करें",
-    adv: "उन्नत सेटिंग्स"
+    adv: "उन्नत सेटिंग्स",
+    calendarBtn: "महीने का कैलेंडर", prevMonth: "पिछला महीना", nextMonth: "अगला महीना",
+    addItem: "चेकलिस्ट में बिंदु जोड़ें", itemPh: "बिंदु"
   },
   es: {
     title: "Cuenta atrás de eventos", nameLabel: "Nombre del evento", dateLabel: "Fecha del evento",
@@ -582,7 +671,9 @@ const T = {
     exportBtn: "Guardar en archivo", importBtn: "Cargar desde archivo",
     importAsk: "¿Reemplazar los temporizadores actuales o añadirlos?", replace: "Reemplazar", append: "Añadir",
     badFile: "El archivo no sirve", happened: "¡Ha llegado el evento «{name}»!", ok: "OK", close: "Cerrar",
-    adv: "Configuración avanzada"
+    adv: "Configuración avanzada",
+    calendarBtn: "Calendario del mes", prevMonth: "Mes anterior", nextMonth: "Mes siguiente",
+    addItem: "Añadir punto a la lista", itemPh: "Punto"
   }
 };
 const MAIN_CODES = ["ru", "en", "zh", "ar", "hi", "es"];
@@ -644,6 +735,10 @@ function normalize(x) {
     date: x.date,
     time: time === null ? "" : time,
     note: typeof x.note === "string" ? x.note : "",
+    // Чек-лист: [{text, done}]
+    checklist: Array.isArray(x.checklist)
+      ? x.checklist.filter(i => i && typeof i.text === "string" && i.text.trim()).map(i => ({ text: i.text, done: !!i.done }))
+      : [],
     color: typeof x.color === "string" && /^#[0-9a-f]{6}$/i.test(x.color) ? x.color : DEFAULT_COLOR,
     emoji: EMOJIS.includes(x.emoji) ? x.emoji : "",
     cat: CATS.includes(x.cat) ? x.cat : "other",
@@ -692,6 +787,9 @@ function applyLang() {
   $("colorBtn").title = tr.color;   $("colorBtn").setAttribute("aria-label", tr.color);
   $("search").placeholder = tr.search; $("search").setAttribute("aria-label", tr.search);
   $("bigClose").title = tr.close;   $("bigClose").setAttribute("aria-label", tr.close);
+  $("addItemBtn").title = tr.addItem; $("addItemBtn").setAttribute("aria-label", tr.addItem);
+  $("calPrev").title = tr.prevMonth;  $("calPrev").setAttribute("aria-label", tr.prevMonth);
+  $("calNext").title = tr.nextMonth;  $("calNext").setAttribute("aria-label", tr.nextMonth);
   document.querySelectorAll(".codes button").forEach(b => b.classList.toggle("on", b.dataset.code === state.lang));
   addF.translate(); editF.translate();
   renderPalette();
@@ -998,8 +1096,8 @@ function buildCard(timer, tr, target) {
   plus.addEventListener("click", () => openNote(timer.id));
   actions.appendChild(plus);
 
-  // Кнопка с глазом появляется, только если заметка сохранена
-  if (timer.note) {
+  // Кнопка с глазом появляется, только если сохранена заметка или чек-лист
+  if (timer.note || timer.checklist.length) {
     const eye = document.createElement("button");
     eye.type = "button"; eye.className = "icon-btn";
     eye.title = tr.viewNote; eye.setAttribute("aria-label", tr.viewNote);
@@ -1182,7 +1280,7 @@ $("form").addEventListener("submit", (e) => {
   $("error").textContent = "";
   // Без «Advanced settings»: категория «Другое» и без повтора
   if (!state.adv) { r.data.cat = "other"; r.data.repeat = false; }
-  state.timers.push({ id: newId(), ...r.data, note: "", pinned: false, created: Date.now() });
+  state.timers.push({ id: newId(), ...r.data, note: "", checklist: [], pinned: false, created: Date.now() });
   saveTimers();
   addF.clear();
   renderTimers();
@@ -1236,19 +1334,178 @@ function openNote(id) {
   noteId = id;
   $("editTitle").textContent = t().note + ": " + timer.name;
   $("noteText").value = timer.note || "";
+  $("checkList").replaceChildren(...timer.checklist.map(item => checkRow(item.text, item.done)));
   $("editDlg").showModal();
+  // Линии рисуем, когда окно уже открыто и ширина полей известна
+  [...$("checkList").children].forEach(li => li.paintLine());
 }
+// Ширина текста в поле — чтобы линия зачёркивания была ровно по тексту
+const measureCtx = document.createElement("canvas").getContext("2d");
+function textWidth(input) {
+  measureCtx.font = getComputedStyle(input).font;
+  return measureCtx.measureText(input.value).width;
+}
+// Ячейка чек-листа: галочка (ставится и снимается кликом) и поле для текста
+function checkRow(text, done) {
+  const li = document.createElement("li");
+  const box = document.createElement("input");
+  box.type = "checkbox"; box.checked = done;
+  const wrap = document.createElement("span");
+  wrap.className = "item-edit";
+  const input = document.createElement("input");
+  input.type = "text"; input.value = text; input.placeholder = t().itemPh;
+  const line = document.createElement("span");
+  line.className = "line";
+  wrap.append(input, line);
+  box.setAttribute("aria-label", t().itemPh);
+  // Отмеченный пункт перечёркнут посередине
+  const paintLine = () => {
+    wrap.classList.toggle("done", box.checked);
+    line.hidden = !box.checked || !input.value;
+    line.style.width = Math.min(textWidth(input), Math.max(0, input.clientWidth - 18)) + "px";
+  };
+  box.addEventListener("change", paintLine);
+  input.addEventListener("input", paintLine);
+  li.append(box, wrap);
+  li.paintLine = paintLine;
+  return li;
+}
+$("addItemBtn").addEventListener("click", () => {
+  const row = checkRow("", false);
+  $("checkList").appendChild(row);
+  row.querySelector('input[type="text"]').focus();
+});
 $("saveBtn").addEventListener("click", () => {
   const timer = findTimer(noteId);
-  if (timer) { timer.note = $("noteText").value; saveTimers(); renderTimers(); }
+  if (timer) {
+    timer.note = $("noteText").value;
+    // Пустые ячейки не сохраняем
+    timer.checklist = [...$("checkList").children]
+      .map(li => ({ text: li.querySelector('input[type="text"]').value, done: li.querySelector('input[type="checkbox"]').checked }))
+      .filter(item => item.text.trim());
+    saveTimers(); renderTimers();
+  }
   $("editDlg").close();
 });
 function openView(id) {
   const timer = findTimer(id);
   $("viewTitle").textContent = t().note + ": " + timer.name;
   $("viewText").textContent = timer.note;
+  $("viewText").hidden = !timer.note;
+  // Чек-лист: текст только читать, а галочки ставить и убирать можно — сохраняется сразу
+  $("viewList").replaceChildren(...timer.checklist.map(item => {
+    const li = document.createElement("li");
+    const box = document.createElement("input");
+    box.type = "checkbox"; box.checked = item.done;
+    box.setAttribute("aria-label", item.text);
+    const span = document.createElement("span");
+    span.className = "item-view" + (item.done ? " done" : "");
+    span.textContent = item.text;
+    box.addEventListener("change", () => {
+      item.done = box.checked;
+      span.classList.toggle("done", box.checked);
+      saveTimers();
+    });
+    // Обёртка нужна, чтобы текст оставался строкой и линия шла по каждой строке
+    const text = document.createElement("div");
+    text.className = "item-text";
+    text.appendChild(span);
+    li.append(box, text);
+    return li;
+  }));
   $("viewDlg").showModal();
 }
+
+/* ===== Календарь месяца ===== */
+let calYear = 0, calMonth = 0;   // какой месяц открыт (месяц 0–11)
+// Таймеры, которые приходятся на этот день. Повторяющиеся — каждый год, начиная со своего.
+function timersOnDay(y, m, d) {
+  return state.timers.filter(timer => {
+    const [ty, tm, td] = timer.date.split("-").map(Number);
+    if (tm !== m + 1) return false;
+    // 29 февраля в невисокосный год → 28 февраля
+    const day = Math.min(td, new Date(y, m + 1, 0).getDate());
+    if (timer.repeat) return y >= ty && day === d;
+    return ty === y && td === d;
+  });
+}
+function openCalendar() {
+  const now = new Date();
+  calYear = now.getFullYear(); calMonth = now.getMonth();
+  renderCalendar();
+  $("calDlg").showModal();
+}
+function shiftMonth(n) {
+  const d = new Date(calYear, calMonth + n, 1);
+  calYear = d.getFullYear(); calMonth = d.getMonth();
+  renderCalendar();
+}
+function renderCalendar() {
+  const grid = $("calGrid");
+  grid.innerHTML = "";
+  $("calDay").hidden = true;
+  $("calTitle").textContent = new Date(calYear, calMonth, 1).toLocaleDateString(state.lang, { month: "long", year: "numeric" });
+
+  // Названия дней недели, неделя с понедельника (5 января 2026 — понедельник)
+  for (let i = 0; i < 7; i++) {
+    const wd = document.createElement("div");
+    wd.className = "cal-wd";
+    wd.textContent = new Date(2026, 0, 5 + i).toLocaleDateString(state.lang, { weekday: "short" });
+    grid.appendChild(wd);
+  }
+  // Пустые клетки до первого числа
+  const offset = (new Date(calYear, calMonth, 1).getDay() + 6) % 7;
+  for (let i = 0; i < offset; i++) grid.appendChild(document.createElement("div"));
+
+  const today = new Date();
+  const days = new Date(calYear, calMonth + 1, 0).getDate();
+  for (let d = 1; d <= days; d++) {
+    const list = timersOnDay(calYear, calMonth, d);
+    const cell = document.createElement(list.length ? "button" : "div");
+    cell.className = "cal-day";
+    if (calYear === today.getFullYear() && calMonth === today.getMonth() && d === today.getDate()) cell.classList.add("today");
+    const num = document.createElement("span");
+    num.className = "num"; num.textContent = d;
+    cell.appendChild(num);
+    if (list.length) {
+      cell.type = "button";
+      // Один таймер — цвет таймера, несколько — подсветка
+      cell.classList.add(list.length > 1 ? "many" : "has");
+      if (list.length === 1 && list[0].color) cell.style.setProperty("--c", list[0].color);
+      const em = list.map(x => x.emoji).filter(Boolean).join("");
+      if (em) {
+        const e = document.createElement("span");
+        e.className = "em"; e.textContent = em;
+        cell.appendChild(e);
+      }
+      const dots = document.createElement("span");
+      dots.className = "dots";
+      list.forEach(x => {
+        const dot = document.createElement("i");
+        if (x.color) dot.style.background = x.color;
+        dots.appendChild(dot);
+      });
+      cell.appendChild(dots);
+      cell.title = list.map(x => x.name).join(", ");
+      cell.addEventListener("click", () => showCalDay(d, list));
+    }
+    grid.appendChild(cell);
+  }
+}
+// Все таймеры выбранного дня
+function showCalDay(d, list) {
+  $("calDayTitle").textContent = showDate(isoOf(new Date(calYear, calMonth, d)));
+  $("calDayList").replaceChildren(...list.map(timer => {
+    const li = document.createElement("li");
+    setTimerColor(li, timer.color);
+    li.textContent = (timer.emoji ? timer.emoji + " " : "") + timer.name + (timer.time ? " · " + timer.time : "");
+    return li;
+  }));
+  $("calDay").hidden = false;
+}
+$("calBtn").addEventListener("click", openCalendar);
+$("calPrev").addEventListener("click", () => shiftMonth(-1));
+$("calNext").addEventListener("click", () => shiftMonth(1));
 document.querySelectorAll("dialog .close").forEach(b => b.addEventListener("click", () => b.closest("dialog").close()));
 
 /* ===== Крупный режим ===== */
