@@ -22,13 +22,14 @@
   html[data-size="large"]  { font-size: 20px; }
 
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   /* Полоса прокрутки появляется сама, только если страница не помещается на экран */
   html { overscroll-behavior: none; }
   body {
     margin: 0; padding: 16px 16px 72px; background: var(--bg); color: var(--fg);
     font: 1rem/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   }
-  button, input, textarea { font: inherit; color: inherit; }
+  button, input, textarea, select { font: inherit; color: inherit; }
   button { cursor: pointer; }
   svg { width: 1.2em; height: 1.2em; display: block; }
 
@@ -65,8 +66,14 @@
 
   /* ---------- Основная часть ---------- */
   main { max-width: 40rem; margin: 24px auto 0; }
-  h1 { font-size: 1.75rem; line-height: 1.2; margin: 0 0 1rem; }
-  .dim { color: var(--dim); }
+  /* Заголовок и справа от него кнопка «Advanced settings» */
+  .title-row { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; margin-bottom: 1rem; }
+  h1 { font-size: 1.75rem; line-height: 1.2; margin: 0; }
+  #advBtn.on { background: var(--fg); border-color: var(--fg); color: var(--bg); }
+  /* Пока «Advanced settings» выключена, эти блоки скрыты */
+  html:not([data-adv]) .adv-only { display: none !important; }
+  /* Без панели над списком первой карточке нужен свой отступ от формы */
+  html:not([data-adv]) #list { margin-top: 20px; }
   .note-small { font-size: .85rem; color: var(--dim); margin: 0 0 1rem; }
 
   .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
@@ -74,49 +81,147 @@
   .seg button + button { border-left: 1px solid var(--line); }
   .seg button.on { background: var(--fg); color: var(--bg); }
 
+  /* ---------- Форма (и окно «Изменить таймер») ---------- */
   form { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
   .field { margin-bottom: 14px; }
   /* Между названием и датой — пустая строка (высота строки 1.5rem) */
   .field:first-child { margin-bottom: 1.5rem; }
-  .field > label { display: block; font-weight: 600; margin-bottom: 4px; }
+  .field > label, .field > .lbl { display: block; font-weight: 600; margin-bottom: 4px; }
   /* Надпись «Дата события» слева, переключатель формата справа, низ на одной линии */
   .date-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
   .date-row label { font-weight: 600; }
-  input[type="text"], textarea {
+  input[type="text"], textarea, select {
     width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--bg);
   }
   .error { color: var(--red); font-size: .85rem; min-height: 1.2em; margin: 0 0 8px; }
 
-  .btn-blue, .btn-red { border: 0; border-radius: 8px; padding: 8px 16px; color: #fff; font-weight: 600; }
+  /* Поле даты: значок календаря у правого края */
+  .date-wrap { position: relative; }
+  .date-wrap .f-date { padding-inline-end: 40px; }
+  .cal-btn {
+    position: absolute; inset-inline-end: 4px; top: 50%; transform: translateY(-50%);
+    border: 0; background: none; padding: 6px; border-radius: 6px; color: var(--dim);
+  }
+  .cal-btn:hover { color: var(--fg); }
+  /* Настоящий календарь браузера: невидимый, открывается кнопкой */
+  .picker { position: absolute; inset-inline-end: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; border: 0; padding: 0; }
+
+  .quick { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .btn-line {
+    border: 1px solid var(--dim); background: transparent; border-radius: 8px;
+    padding: 4px 10px; font-size: .85rem;
+  }
+
+  .colors { display: flex; gap: 8px; flex-wrap: wrap; }
+  .colors button { width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent; box-shadow: inset 0 0 0 2px var(--card); padding: 0; }
+  .colors button.on { border-color: var(--fg); }
+  .emojis { display: flex; gap: 4px; flex-wrap: wrap; }
+  .emojis button { width: 36px; height: 36px; border-radius: 8px; border: 2px solid transparent; background: none; font-size: 1.25rem; line-height: 1; padding: 0; }
+  .emojis button.on { border-color: var(--fg); }
+  .check { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; cursor: pointer; }
+  .check input { width: 18px; height: 18px; margin: 0; accent-color: var(--blue); }
+
+  .btn-blue, .btn-red, .btn-grey { border: 0; border-radius: 8px; padding: 8px 16px; color: #fff; font-weight: 600; }
   .btn-blue { background: var(--blue); }
   form .btn-blue { width: 100%; }
   .btn-red  { background: var(--red); }
+  .btn-grey { background: transparent; color: var(--fg); border: 1px solid var(--dim); }
+
+  /* ---------- Панель над списком ---------- */
+  .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 20px 0 10px; }
+  .toolbar #search { flex: 1 1 12rem; min-width: 0; }
+  .toolbar select { width: auto; }
+  .toolbar .check { margin: 0; white-space: nowrap; }
+  /* Телефон: поиск — первая строка, сортировка и компактный вид — вторая */
+  @media (max-width: 480px) {
+    .toolbar #search { flex-basis: 100%; }
+    .toolbar select { flex: 1; min-width: 0; }
+  }
+  .cats { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 12px; }
+  .cats button {
+    border: 1px solid var(--line); background: var(--card); border-radius: 999px;
+    padding: 3px 10px; font-size: .85rem; color: var(--dim);
+  }
+  .cats button.on { background: var(--fg); border-color: var(--fg); color: var(--bg); }
 
   /* ---------- Таймеры ---------- */
-  #list { list-style: none; padding: 0; margin: 20px 0 0; display: flex; flex-direction: column; gap: 12px; }
-  .timer { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
-  .timer h2 { font-size: 1.15rem; margin: 0; overflow-wrap: anywhere; }
-  .timer .when { font-size: .85rem; color: var(--dim); margin: 0 0 10px; }
-  .units { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; text-align: center; }
-  .units[hidden] { display: none; }
+  .list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
+  .timer {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px;
+  }
+  /* Цветная полоска слева — только если у таймера выбран цвет */
+  .timer.colored { border-inline-start: 5px solid var(--c); }
+  .top { display: flex; align-items: flex-start; gap: 8px; }
+  .top h2 { flex: 1; min-width: 0; font-size: 1.15rem; margin: 0; }
+  .title-btn {
+    border: 0; background: none; padding: 0; font: inherit; font-weight: 700; color: inherit;
+    text-align: start; overflow-wrap: anywhere; cursor: pointer;
+  }
+  .title-btn:hover { text-decoration: underline; }
+  .emo { margin-inline-end: 6px; }
+  .tag { font-size: .75rem; padding: 2px 8px; margin-top: 3px; border-radius: 999px; background: var(--line); white-space: nowrap; }
+  .pin { border: 0; background: none; padding: 0 2px; font-size: 1rem; line-height: 1.5; opacity: .3; }
+  .pin.on { opacity: 1; }
+  .when { font-size: .85rem; color: var(--dim); margin: 0 0 10px; }
+  .ago-label { font-size: .85rem; color: var(--dim); font-weight: 600; margin: 0 0 4px; }
+  .units { display: flex; gap: 6px; text-align: center; }
+  .units > div { flex: 1 1 0; min-width: 0; }
   .units b { display: block; font-size: 1.35rem; font-variant-numeric: tabular-nums; }
   .units span { font-size: .7rem; color: var(--dim); }
-  .passed { color: var(--dim); font-weight: 600; }
-  .actions { display: flex; gap: 8px; margin-top: 12px; align-items: center; }
-  .actions .btn-blue { padding: 6px 14px; font-size: 1.1rem; line-height: 1; }
-  .actions .btn-red { margin-left: auto; padding: 6px 14px; }
-  @media (max-width: 420px) { .units { grid-template-columns: repeat(3, 1fr); } }
+  .past .units b { color: var(--dim); }
+  .progress { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+  .bar { flex: 1; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--c, var(--dim)); }
+  .pct { font-size: .75rem; color: var(--dim); min-width: 2.6em; text-align: end; font-variant-numeric: tabular-nums; }
+  .actions { display: flex; gap: 8px; margin-top: 12px; align-items: center; flex-wrap: wrap; }
+  .actions button { padding: 6px 14px; }
+  .actions .btn-blue { font-size: 1.1rem; line-height: 1; }
+  .actions .btn-red { margin-inline-start: auto; }
+  @media (max-width: 420px) {
+    .units { flex-wrap: wrap; }
+    .units > div { flex: 1 0 30%; }
+  }
+
+  /* Компактный вид: одна строка на таймер */
+  .timer.compact { padding: 8px 12px; }
+  .row { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: none; padding: 0; text-align: start; }
+  .row .name { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+  .row .short { color: var(--dim); font-size: .85rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+  .past-title { font-size: 1.1rem; color: var(--dim); margin: 24px 0 10px; }
+  .files { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 24px; }
+  .files + .error { margin-top: 8px; }
 
   /* ---------- Окна ---------- */
   dialog {
-    width: min(30rem, calc(100vw - 32px)); border: 1px solid var(--line); border-radius: 12px;
-    background: var(--card); color: var(--fg); padding: 16px;
+    width: min(30rem, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto;
+    border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--fg); padding: 16px;
   }
   dialog::backdrop { background: rgba(0,0,0,.4); }
   .dlg-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
   .dlg-head h3 { margin: 0; font-size: 1.1rem; overflow-wrap: anywhere; }
+  .dlg-text { margin: 0; overflow-wrap: anywhere; }
+  .dlg-btns { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
   textarea { min-height: 9rem; resize: vertical; margin-bottom: 10px; }
   .read { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
+
+  /* Сообщение «Событие наступило»: не модальное, чтобы конфетти летели поверх */
+  #celebDlg { position: fixed; inset: 0; margin: auto; height: fit-content; z-index: 60; box-shadow: 0 10px 40px rgba(0,0,0,.3); }
+  #celebText { white-space: pre-line; font-weight: 600; font-size: 1.1rem; margin: 0; }
+  .confetti { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 100; }
+
+  /* ---------- Крупный режим на весь экран ---------- */
+  #big {
+    position: fixed; inset: 0; z-index: 50; background: var(--bg); overflow: auto;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 56px 16px 24px;
+  }
+  #bigClose { position: absolute; top: 16px; inset-inline-end: 16px; }
+  #bigBody { width: min(100%, 56rem); text-align: center; }
+  #big .big-emoji { font-size: 3rem; line-height: 1; }
+  #big h2 { font-size: 2rem; margin: 8px 0 24px; overflow-wrap: anywhere; }
+  #big .units b { font-size: 4.2rem; line-height: 1.1; }
+  #big .units span { font-size: .9rem; }
+  #big .progress { max-width: 40rem; margin: 24px auto 0; }
 
   /* ---------- Цвет страницы (справа снизу) ---------- */
   #colorBtn { position: fixed; right: 16px; bottom: 16px; border-radius: 50%; padding: 12px; z-index: 20; }
@@ -125,7 +230,6 @@
     background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px;
     display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px;
   }
-  #palette[hidden] { display: none; }
   #palette button { aspect-ratio: 1; border-radius: 50%; border: 2px solid transparent; }
   #palette button.on { border-color: var(--fg); }
   #palette .reset { grid-column: 1 / -1; aspect-ratio: auto; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); padding: 4px; font-size: .85rem; }
@@ -149,30 +253,92 @@
 </header>
 
 <main>
-  <h1 data-t="title"></h1>
+  <div class="title-row">
+    <h1 data-t="title"></h1>
+    <button class="btn-line" type="button" id="advBtn" data-t="adv"></button>
+  </div>
   <p class="note-small" id="fallback" hidden data-t="notTranslated"></p>
 
+  <!-- Поля формы вставляются сюда из шаблона fieldsTpl -->
   <form id="form" novalidate>
-    <div class="field">
-      <label for="name" data-t="nameLabel"></label>
-      <input id="name" type="text">
-    </div>
-    <div class="field">
-      <div class="date-row">
-        <label for="date" data-t="dateLabel"></label>
-        <div class="seg" id="fmtSeg">
-          <button type="button" data-fmt="mdy">mm/dd/yyyy</button>
-          <button type="button" data-fmt="dmy">dd/mm/yyyy</button>
-        </div>
-      </div>
-      <input id="date" type="text" inputmode="numeric">
-    </div>
     <p class="error" id="error"></p>
     <button class="btn-blue" type="submit" data-t="add"></button>
   </form>
 
-  <ul id="list"></ul>
+  <!-- Панель над списком: поиск, сортировка, компактный вид -->
+  <div class="toolbar adv-only">
+    <input id="search" type="text" autocomplete="off">
+    <select id="sort">
+      <option value="date" data-t="sortDate"></option>
+      <option value="name" data-t="sortName"></option>
+      <option value="created" data-t="sortCreated"></option>
+    </select>
+    <label class="check"><input type="checkbox" id="compact"><span data-t="compact"></span></label>
+  </div>
+  <div class="cats adv-only" id="cats"></div>
+
+  <ul class="list" id="list"></ul>
+
+  <!-- Прошедшие события -->
+  <section id="pastBlock" hidden>
+    <h2 class="past-title" id="pastTitle"></h2>
+    <ul class="list" id="pastList"></ul>
+  </section>
+
+  <!-- Перенос таймеров файлом -->
+  <div class="files adv-only">
+    <button class="btn-line" type="button" id="exportBtn" data-t="exportBtn"></button>
+    <button class="btn-line" type="button" id="importBtn" data-t="importBtn"></button>
+    <input type="file" id="fileInput" accept=".json,application/json" hidden>
+  </div>
+  <p class="error adv-only" id="fileError"></p>
 </main>
+
+<!-- Шаблон полей таймера: один и тот же для формы и для окна «Изменить» -->
+<template id="fieldsTpl">
+  <div class="field">
+    <label data-for="name" data-t="nameLabel"></label>
+    <input data-id="name" class="f-name" type="text">
+  </div>
+  <div class="field">
+    <div class="date-row">
+      <label data-for="date" data-t="dateLabel"></label>
+      <div class="seg fmt">
+        <button type="button" data-fmt="mdy">mm/dd/yyyy</button>
+        <button type="button" data-fmt="dmy">dd/mm/yyyy</button>
+      </div>
+    </div>
+    <div class="date-wrap">
+      <input data-id="date" class="f-date" type="text" inputmode="numeric">
+      <button type="button" class="cal-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      </button>
+      <input type="date" class="picker" tabindex="-1" aria-hidden="true">
+    </div>
+    <div class="quick adv-only">
+      <button type="button" class="btn-line" data-q="week" data-t="week"></button>
+      <button type="button" class="btn-line" data-q="month" data-t="month"></button>
+      <button type="button" class="btn-line" data-q="newYear" data-t="newYear"></button>
+    </div>
+  </div>
+  <div class="field">
+    <label data-for="time" data-t="timeLabel"></label>
+    <input data-id="time" class="f-time" type="text" inputmode="numeric">
+  </div>
+  <div class="field">
+    <span class="lbl" data-t="colorLabel"></span>
+    <div class="colors"></div>
+  </div>
+  <div class="field">
+    <span class="lbl" data-t="emojiLabel"></span>
+    <div class="emojis"></div>
+  </div>
+  <div class="field adv-only">
+    <label data-for="cat" data-t="catLabel"></label>
+    <select data-id="cat" class="f-cat"></select>
+  </div>
+  <label class="check adv-only"><input type="checkbox" class="f-repeat"><span data-t="repeat"></span></label>
+</template>
 
 <!-- Окно заметки: пишем и сохраняем -->
 <dialog id="editDlg">
@@ -193,6 +359,54 @@
   <p class="read" id="viewText"></p>
 </dialog>
 
+<!-- Окно «Изменить таймер» -->
+<dialog id="timerDlg">
+  <div class="dlg-head">
+    <h3 data-t="editTitle"></h3>
+    <button class="icon-btn close" type="button">✕</button>
+  </div>
+  <div id="timerBody">
+    <p class="error" id="timerError"></p>
+  </div>
+  <div class="dlg-btns">
+    <button class="btn-grey" type="button" id="timerCancel" data-t="cancel"></button>
+    <button class="btn-blue" type="button" id="timerSave" data-t="save"></button>
+  </div>
+</dialog>
+
+<!-- Окно «Точно удалить?» -->
+<dialog id="confirmDlg">
+  <p class="dlg-text" id="confirmText"></p>
+  <div class="dlg-btns">
+    <button class="btn-grey" type="button" id="confirmNo" data-t="cancel"></button>
+    <button class="btn-red" type="button" id="confirmYes" data-t="del"></button>
+  </div>
+</dialog>
+
+<!-- Окно «Заменить или добавить?» при загрузке файла -->
+<dialog id="importDlg">
+  <p class="dlg-text" data-t="importAsk"></p>
+  <div class="dlg-btns">
+    <button class="btn-grey" type="button" id="importCancel" data-t="cancel"></button>
+    <button class="btn-grey" type="button" id="importAppend" data-t="append"></button>
+    <button class="btn-blue" type="button" id="importReplace" data-t="replace"></button>
+  </div>
+</dialog>
+
+<!-- Сообщение «Событие наступило!» -->
+<dialog id="celebDlg">
+  <p id="celebText"></p>
+  <div class="dlg-btns">
+    <button class="btn-blue" type="button" id="celebOk" data-t="ok"></button>
+  </div>
+</dialog>
+
+<!-- Крупный режим одного таймера -->
+<div id="big" hidden role="dialog" aria-modal="true">
+  <button class="icon-btn" type="button" id="bigClose">✕</button>
+  <div id="bigBody"></div>
+</div>
+
 <!-- Справа снизу: цвет страницы -->
 <button class="icon-btn" id="colorBtn" type="button">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c1 0 1.5-.8 1.5-1.5 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.8.7-1.5 1.5-1.5H16a5 5 0 0 0 5-5c0-4.4-4-7.8-9-7.8z"/><circle cx="7.5" cy="10.5" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="16.5" cy="10.5" r="1"/></svg>
@@ -206,73 +420,169 @@ const T = {
     title: "Таймеры до событий", nameLabel: "Название события", dateLabel: "Дата события",
     add: "Добавить", del: "Удалить",
     units: ["годы", "месяцы", "дни", "часы", "минуты", "секунды"],
-    passed: "Событие уже наступило",
+    unitsShort: ["г.", "мес.", "дн.", "ч", "мин", "с"],
     errName: "Напиши название события.", errDate: "Дата не подходит. Нужен формат ",
     save: "Сохранить", note: "Заметка",
     theme: "Светлая или тёмная тема", color: "Цвет страницы", noColor: "Без цвета",
     textSize: "Размер текста:", small: "Маленький", medium: "Средний", large: "Большой",
     addNote: "Добавить заметку", viewNote: "Посмотреть заметку",
-    notTranslated: "Перевода на этот язык пока нет — текст показан по-английски."
+    notTranslated: "Перевода на этот язык пока нет — текст показан по-английски.",
+    timeLabel: "Время события", timePh: "чч:мм", errTime: "Время не подходит. Нужен формат чч:мм",
+    calendar: "Выбрать дату в календаре", week: "Через неделю", month: "Через месяц", newYear: "Новый год",
+    colorLabel: "Цвет таймера",
+    colorNames: ["Красный", "Оранжевый", "Жёлтый", "Зелёный", "Бирюзовый", "Синий", "Фиолетовый", "Розовый"],
+    emojiLabel: "Эмодзи", catLabel: "Категория", all: "Все",
+    cats: { study: "Учёба", holiday: "Праздники", games: "Игры", other: "Другое" },
+    repeat: "Повторять каждый год", repeatOn: "Повторяется каждый год",
+    edit: "Изменить", editTitle: "Изменить таймер", cancel: "Отмена",
+    confirmDel: "Точно удалить «{name}»?",
+    search: "Поиск по названию", sortDate: "По дате", sortName: "По названию", sortCreated: "По дате создания",
+    compact: "Компактный вид", pin: "Закрепить", unpin: "Открепить",
+    pastTitle: "Уже было", ago: "Прошло",
+    exportBtn: "Сохранить в файл", importBtn: "Загрузить из файла",
+    importAsk: "Заменить текущие таймеры или добавить к ним?", replace: "Заменить", append: "Добавить",
+    badFile: "Файл не подходит", happened: "Событие «{name}» наступило!", ok: "ОК", close: "Закрыть",
+    adv: "Расширенные настройки"
   },
   en: {
     title: "Event countdowns", nameLabel: "Event name", dateLabel: "Event date",
     add: "Add", del: "Delete",
     units: ["years", "months", "days", "hours", "minutes", "seconds"],
-    passed: "The event has already happened",
+    unitsShort: ["y", "mo", "d", "h", "min", "s"],
     errName: "Enter the event name.", errDate: "Invalid date. Use the format ",
     save: "Save", note: "Note",
     theme: "Light or dark theme", color: "Page color", noColor: "No color",
     textSize: "Text size:", small: "Small", medium: "Medium", large: "Large",
     addNote: "Add note", viewNote: "View note",
-    notTranslated: "This language is not translated yet — showing English."
+    notTranslated: "This language is not translated yet — showing English.",
+    timeLabel: "Event time", timePh: "hh:mm", errTime: "Invalid time. Use the format hh:mm",
+    calendar: "Pick a date in the calendar", week: "In a week", month: "In a month", newYear: "New Year",
+    colorLabel: "Timer color",
+    colorNames: ["Red", "Orange", "Yellow", "Green", "Teal", "Blue", "Purple", "Pink"],
+    emojiLabel: "Emoji", catLabel: "Category", all: "All",
+    cats: { study: "School", holiday: "Holidays", games: "Games", other: "Other" },
+    repeat: "Repeat every year", repeatOn: "Repeats every year",
+    edit: "Edit", editTitle: "Edit timer", cancel: "Cancel",
+    confirmDel: "Really delete “{name}”?",
+    search: "Search by name", sortDate: "By date", sortName: "By name", sortCreated: "By creation date",
+    compact: "Compact view", pin: "Pin", unpin: "Unpin",
+    pastTitle: "Already happened", ago: "Time since",
+    exportBtn: "Save to file", importBtn: "Load from file",
+    importAsk: "Replace the current timers or add to them?", replace: "Replace", append: "Add",
+    badFile: "This file doesn't fit", happened: "The event “{name}” has arrived!", ok: "OK", close: "Close",
+    adv: "Advanced settings"
   },
   zh: {
     title: "活动倒计时", nameLabel: "活动名称", dateLabel: "活动日期",
     add: "添加", del: "删除",
     units: ["年", "月", "天", "小时", "分钟", "秒"],
-    passed: "活动已经开始",
+    unitsShort: ["年", "月", "天", "时", "分", "秒"],
     errName: "请输入活动名称。", errDate: "日期无效。请使用格式 ",
     save: "保存", note: "备注",
     theme: "浅色或深色主题", color: "页面颜色", noColor: "无颜色",
     textSize: "文字大小：", small: "小", medium: "中", large: "大",
     addNote: "添加备注", viewNote: "查看备注",
-    notTranslated: "此语言暂无翻译，显示英文。"
+    notTranslated: "此语言暂无翻译，显示英文。",
+    timeLabel: "活动时间", timePh: "hh:mm", errTime: "时间无效。请使用格式 hh:mm",
+    calendar: "在日历中选择日期", week: "一周后", month: "一个月后", newYear: "新年",
+    colorLabel: "计时器颜色",
+    colorNames: ["红色", "橙色", "黄色", "绿色", "青色", "蓝色", "紫色", "粉色"],
+    emojiLabel: "表情", catLabel: "类别", all: "全部",
+    cats: { study: "学习", holiday: "节日", games: "游戏", other: "其他" },
+    repeat: "每年重复", repeatOn: "每年重复",
+    edit: "编辑", editTitle: "编辑计时器", cancel: "取消",
+    confirmDel: "确定要删除“{name}”吗？",
+    search: "按名称搜索", sortDate: "按日期", sortName: "按名称", sortCreated: "按创建时间",
+    compact: "紧凑视图", pin: "置顶", unpin: "取消置顶",
+    pastTitle: "已经过去", ago: "已过去",
+    exportBtn: "保存到文件", importBtn: "从文件加载",
+    importAsk: "替换当前的计时器，还是添加到其中？", replace: "替换", append: "添加",
+    badFile: "文件不合适", happened: "活动“{name}”到了！", ok: "好", close: "关闭",
+    adv: "高级设置"
   },
   ar: {
     title: "العد التنازلي للأحداث", nameLabel: "اسم الحدث", dateLabel: "تاريخ الحدث",
     add: "إضافة", del: "حذف",
     units: ["سنوات", "أشهر", "أيام", "ساعات", "دقائق", "ثوانٍ"],
-    passed: "لقد حان الحدث بالفعل",
+    unitsShort: ["سنة", "شهر", "يوم", "س", "د", "ث"],
     errName: "اكتب اسم الحدث.", errDate: "التاريخ غير صحيح. استخدم الصيغة ",
     save: "حفظ", note: "ملاحظة",
     theme: "سمة فاتحة أو داكنة", color: "لون الصفحة", noColor: "بدون لون",
     textSize: "حجم النص:", small: "صغير", medium: "متوسط", large: "كبير",
     addNote: "إضافة ملاحظة", viewNote: "عرض الملاحظة",
-    notTranslated: "لا توجد ترجمة لهذه اللغة بعد — يُعرض النص بالإنجليزية."
+    notTranslated: "لا توجد ترجمة لهذه اللغة بعد — يُعرض النص بالإنجليزية.",
+    timeLabel: "وقت الحدث", timePh: "hh:mm", errTime: "الوقت غير صحيح. استخدم الصيغة hh:mm",
+    calendar: "اختر التاريخ من التقويم", week: "بعد أسبوع", month: "بعد شهر", newYear: "رأس السنة",
+    colorLabel: "لون المؤقت",
+    colorNames: ["أحمر", "برتقالي", "أصفر", "أخضر", "فيروزي", "أزرق", "بنفسجي", "وردي"],
+    emojiLabel: "رمز تعبيري", catLabel: "الفئة", all: "الكل",
+    cats: { study: "الدراسة", holiday: "العطلات", games: "الألعاب", other: "أخرى" },
+    repeat: "التكرار كل عام", repeatOn: "يتكرر كل عام",
+    edit: "تعديل", editTitle: "تعديل المؤقت", cancel: "إلغاء",
+    confirmDel: "هل تريد حذف «{name}» حقًا؟",
+    search: "البحث بالاسم", sortDate: "حسب التاريخ", sortName: "حسب الاسم", sortCreated: "حسب تاريخ الإنشاء",
+    compact: "عرض مضغوط", pin: "تثبيت", unpin: "إلغاء التثبيت",
+    pastTitle: "انتهت بالفعل", ago: "مضى",
+    exportBtn: "حفظ في ملف", importBtn: "تحميل من ملف",
+    importAsk: "هل تريد استبدال المؤقتات الحالية أم الإضافة إليها؟", replace: "استبدال", append: "إضافة",
+    badFile: "الملف غير مناسب", happened: "لقد حان الحدث «{name}»!", ok: "حسنًا", close: "إغلاق",
+    adv: "إعدادات متقدمة"
   },
   hi: {
     title: "घटनाओं की उलटी गिनती", nameLabel: "घटना का नाम", dateLabel: "घटना की तारीख",
     add: "जोड़ें", del: "हटाएँ",
     units: ["साल", "महीने", "दिन", "घंटे", "मिनट", "सेकंड"],
-    passed: "घटना हो चुकी है",
+    unitsShort: ["सा", "मही", "दि", "घं", "मि", "से"],
     errName: "घटना का नाम लिखें।", errDate: "तारीख गलत है। यह प्रारूप लिखें: ",
     save: "सहेजें", note: "नोट",
     theme: "हल्की या गहरी थीम", color: "पेज का रंग", noColor: "कोई रंग नहीं",
     textSize: "अक्षर का आकार:", small: "छोटा", medium: "मध्यम", large: "बड़ा",
     addNote: "नोट जोड़ें", viewNote: "नोट देखें",
-    notTranslated: "इस भाषा का अनुवाद अभी नहीं है — अंग्रेज़ी दिखाई जा रही है।"
+    notTranslated: "इस भाषा का अनुवाद अभी नहीं है — अंग्रेज़ी दिखाई जा रही है।",
+    timeLabel: "घटना का समय", timePh: "hh:mm", errTime: "समय गलत है। यह प्रारूप लिखें: hh:mm",
+    calendar: "कैलेंडर में तारीख चुनें", week: "एक हफ़्ते बाद", month: "एक महीने बाद", newYear: "नया साल",
+    colorLabel: "टाइमर का रंग",
+    colorNames: ["लाल", "नारंगी", "पीला", "हरा", "फ़िरोज़ी", "नीला", "बैंगनी", "गुलाबी"],
+    emojiLabel: "इमोजी", catLabel: "श्रेणी", all: "सभी",
+    cats: { study: "पढ़ाई", holiday: "त्योहार", games: "खेल", other: "अन्य" },
+    repeat: "हर साल दोहराएँ", repeatOn: "हर साल दोहराता है",
+    edit: "बदलें", editTitle: "टाइमर बदलें", cancel: "रद्द करें",
+    confirmDel: "क्या सच में «{name}» हटाना है?",
+    search: "नाम से खोजें", sortDate: "तारीख से", sortName: "नाम से", sortCreated: "बनाने की तारीख से",
+    compact: "छोटा दृश्य", pin: "पिन करें", unpin: "पिन हटाएँ",
+    pastTitle: "बीत चुके", ago: "बीत गए",
+    exportBtn: "फ़ाइल में सहेजें", importBtn: "फ़ाइल से लोड करें",
+    importAsk: "मौजूदा टाइमर बदलें या उनमें जोड़ें?", replace: "बदलें", append: "जोड़ें",
+    badFile: "यह फ़ाइल सही नहीं है", happened: "घटना «{name}» आ गई!", ok: "ठीक है", close: "बंद करें",
+    adv: "उन्नत सेटिंग्स"
   },
   es: {
     title: "Cuenta atrás de eventos", nameLabel: "Nombre del evento", dateLabel: "Fecha del evento",
     add: "Añadir", del: "Eliminar",
     units: ["años", "meses", "días", "horas", "minutos", "segundos"],
-    passed: "El evento ya ha llegado",
+    unitsShort: ["a", "m", "d", "h", "min", "s"],
     errName: "Escribe el nombre del evento.", errDate: "Fecha no válida. Usa el formato ",
     save: "Guardar", note: "Nota",
     theme: "Tema claro u oscuro", color: "Color de la página", noColor: "Sin color",
     textSize: "Tamaño del texto:", small: "Pequeño", medium: "Mediano", large: "Grande",
     addNote: "Añadir nota", viewNote: "Ver nota",
-    notTranslated: "Este idioma aún no está traducido — se muestra en inglés."
+    notTranslated: "Este idioma aún no está traducido — se muestra en inglés.",
+    timeLabel: "Hora del evento", timePh: "hh:mm", errTime: "Hora no válida. Usa el formato hh:mm",
+    calendar: "Elegir la fecha en el calendario", week: "En una semana", month: "En un mes", newYear: "Año Nuevo",
+    colorLabel: "Color del temporizador",
+    colorNames: ["Rojo", "Naranja", "Amarillo", "Verde", "Turquesa", "Azul", "Morado", "Rosa"],
+    emojiLabel: "Emoji", catLabel: "Categoría", all: "Todos",
+    cats: { study: "Estudios", holiday: "Fiestas", games: "Juegos", other: "Otros" },
+    repeat: "Repetir cada año", repeatOn: "Se repite cada año",
+    edit: "Editar", editTitle: "Editar temporizador", cancel: "Cancelar",
+    confirmDel: "¿Seguro que quieres eliminar «{name}»?",
+    search: "Buscar por nombre", sortDate: "Por fecha", sortName: "Por nombre", sortCreated: "Por fecha de creación",
+    compact: "Vista compacta", pin: "Fijar", unpin: "Desfijar",
+    pastTitle: "Ya pasaron", ago: "Hace",
+    exportBtn: "Guardar en archivo", importBtn: "Cargar desde archivo",
+    importAsk: "¿Reemplazar los temporizadores actuales o añadirlos?", replace: "Reemplazar", append: "Añadir",
+    badFile: "El archivo no sirve", happened: "¡Ha llegado el evento «{name}»!", ok: "OK", close: "Cerrar",
+    adv: "Configuración avanzada"
   }
 };
 const MAIN_CODES = ["ru", "en", "zh", "ar", "hi", "es"];
@@ -286,6 +596,14 @@ const COLORS = [
   "#0f766e","#1e3a8a","#7c2d12","#365314","#831843"
 ];
 
+/* ===== Что можно выбрать у таймера ===== */
+// 8 цветов: красный, оранжевый, жёлтый, зелёный, бирюзовый, синий, фиолетовый, розовый
+const TIMER_COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#14b8a6", "#3b82f6", "#8b5cf6", "#ec4899"];
+const DEFAULT_COLOR = "";   // по умолчанию у таймера нет цвета
+const EMOJIS = ["🎂", "🎉", "🎄", "🎓", "📚", "🎮", "⚽", "✈️", "🎁", "❤️", "⭐", "📅"];
+const CATS = ["study", "holiday", "games", "other"];
+const SORTS = ["date", "name", "created"];
+
 /* ===== Сохранение в браузере ===== */
 function load(key, fallback) {
   try { const v = localStorage.getItem(key); return v === null ? fallback : JSON.parse(v); }
@@ -295,17 +613,68 @@ function store(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
 }
 
+/* ===== Даты и время ===== */
+const pad = (n) => String(n).padStart(2, "0");
+const isoOf = (d) => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+function validIso(s) {
+  if (typeof s !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const [y, m, d] = s.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
+}
+// "19:00" → "19:00", "7:05" → "07:05", пусто → "", ошибка → null
+function parseTime(text) {
+  const s = text.trim();
+  if (!s) return "";
+  const m = s.match(/^(\d{1,2}):(\d{2})$/);
+  if (!m || +m[1] > 23 || +m[2] > 59) return null;
+  return pad(+m[1]) + ":" + m[2];
+}
+
+/* ===== Таймер: недостающие поля заполняем значениями по умолчанию ===== */
+const newId = () => String(Date.now()) + Math.random().toString(16).slice(2, 6);
+function isValidTimer(x) {
+  return !!x && typeof x === "object" && typeof x.name === "string" && x.name.trim() !== "" && validIso(x.date);
+}
+function normalize(x) {
+  const time = typeof x.time === "string" ? parseTime(x.time) : "";
+  return {
+    id: typeof x.id === "string" && x.id ? x.id : newId(),
+    name: x.name,
+    date: x.date,
+    time: time === null ? "" : time,
+    note: typeof x.note === "string" ? x.note : "",
+    color: typeof x.color === "string" && /^#[0-9a-f]{6}$/i.test(x.color) ? x.color : DEFAULT_COLOR,
+    emoji: EMOJIS.includes(x.emoji) ? x.emoji : "",
+    cat: CATS.includes(x.cat) ? x.cat : "other",
+    repeat: !!x.repeat,
+    pinned: !!x.pinned,
+    // У старых таймеров даты создания нет: проценты считаются с первого открытия
+    created: typeof x.created === "number" && isFinite(x.created) ? x.created : Date.now()
+  };
+}
+
 const state = {
-  timers: load("timers", []),                 // [{id, name, date: "yyyy-mm-dd", note}]
-  lang:   load("lang", "en"),
-  theme:  load("theme", "light"),
-  color:  load("color", null),
-  size:   load("size", "medium"),
-  fmt:    load("fmt", "dmy")
+  timers: load("timers", []).filter(isValidTimer).map(normalize),
+  lang:    load("lang", "en"),
+  theme:   load("theme", "light"),
+  color:   load("color", null),
+  size:    load("size", "medium"),
+  fmt:     load("fmt", "dmy"),
+  sort:    load("sort", "date"),
+  cat:     load("cat", "all"),
+  compact: load("compact", false),
+  adv:     load("adv", false),   // «Advanced settings»: при первом открытии выключена
+  search:  ""
 };
+if (!SORTS.includes(state.sort)) state.sort = "date";
+if (state.cat !== "all" && !CATS.includes(state.cat)) state.cat = "all";
+function saveTimers() { store("timers", state.timers); }
+saveTimers();
 
 const $ = (id) => document.getElementById(id);
 const t = () => T[state.lang] || T.en;
+const findTimer = (id) => state.timers.find(x => x.id === id);
 
 /* ===== Язык ===== */
 function applyLang() {
@@ -321,7 +690,10 @@ function applyLang() {
   });
   $("themeBtn").title = tr.theme;   $("themeBtn").setAttribute("aria-label", tr.theme);
   $("colorBtn").title = tr.color;   $("colorBtn").setAttribute("aria-label", tr.color);
+  $("search").placeholder = tr.search; $("search").setAttribute("aria-label", tr.search);
+  $("bigClose").title = tr.close;   $("bigClose").setAttribute("aria-label", tr.close);
   document.querySelectorAll(".codes button").forEach(b => b.classList.toggle("on", b.dataset.code === state.lang));
+  addF.translate(); editF.translate();
   renderPalette();
   renderTimers();
 }
@@ -392,12 +764,9 @@ document.querySelectorAll("#sizeSeg button").forEach(b => b.addEventListener("cl
 /* ===== Формат даты ===== */
 const fmtText = () => state.fmt === "mdy" ? "mm/dd/yyyy" : "dd/mm/yyyy";
 function applyFmt() {
-  $("date").placeholder = fmtText();
-  document.querySelectorAll("#fmtSeg button").forEach(b => b.classList.toggle("on", b.dataset.fmt === state.fmt));
+  document.querySelectorAll(".f-date").forEach(i => { i.placeholder = fmtText(); });
+  document.querySelectorAll(".fmt button").forEach(b => b.classList.toggle("on", b.dataset.fmt === state.fmt));
 }
-document.querySelectorAll("#fmtSeg button").forEach(b => b.addEventListener("click", () => {
-  state.fmt = b.dataset.fmt; store("fmt", state.fmt); applyFmt(); renderTimers();
-}));
 
 // Разбираем "02/21/2019", "02.21.2019" или "02-21-2019" → "2019-02-21"
 function parseDate(text) {
@@ -408,15 +777,103 @@ function parseDate(text) {
   const day   = state.fmt === "mdy" ? b : a;
   const d = new Date(y, month - 1, day);
   if (d.getFullYear() !== y || d.getMonth() !== month - 1 || d.getDate() !== day) return null;
-  return y + "-" + String(month).padStart(2, "0") + "-" + String(day).padStart(2, "0");
+  return y + "-" + pad(month) + "-" + pad(day);
 }
-function toDate(iso) { const [y, m, d] = iso.split("-").map(Number); return new Date(y, m - 1, d); }
 function showDate(iso) {
   const [y, m, d] = iso.split("-");
   return state.fmt === "mdy" ? m + "/" + d + "/" + y : d + "/" + m + "/" + y;
 }
 
-/* ===== Сколько осталось: годы, месяцы, дни, часы, минуты, секунды ===== */
+/* ===== Поля таймера: одинаковые в форме и в окне «Изменить» ===== */
+function makeFields(container, before, prefix, withFmt) {
+  const frag = $("fieldsTpl").content.cloneNode(true);
+  frag.querySelectorAll("[data-id]").forEach(el => { el.id = prefix + el.dataset.id; });
+  frag.querySelectorAll("[data-for]").forEach(el => { el.htmlFor = prefix + el.dataset.for; });
+  if (!withFmt) frag.querySelector(".fmt").remove();
+  const q = (s) => frag.querySelector(s);
+  const F = {
+    name: q(".f-name"), date: q(".f-date"), time: q(".f-time"), cat: q(".f-cat"), repeat: q(".f-repeat"),
+    colors: q(".colors"), emojis: q(".emojis"), calBtn: q(".cal-btn"), picker: q(".picker"),
+    quick: [...frag.querySelectorAll("[data-q]")], fmtBtns: [...frag.querySelectorAll(".fmt button")],
+    color: DEFAULT_COLOR, emoji: ""
+  };
+  container.insertBefore(frag, before);
+
+  // Подсветка выбранного цвета и эмодзи
+  F.paint = () => {
+    [...F.colors.children].forEach(b => { b.classList.toggle("on", b.dataset.c === F.color); b.setAttribute("aria-pressed", b.dataset.c === F.color); });
+    [...F.emojis.children].forEach(b => { b.classList.toggle("on", b.dataset.e === F.emoji); b.setAttribute("aria-pressed", b.dataset.e === F.emoji); });
+  };
+  TIMER_COLORS.forEach(c => {
+    const b = document.createElement("button");
+    b.type = "button"; b.dataset.c = c; b.style.background = c;
+    // Повторное нажатие снимает выбор, как у эмодзи
+    b.addEventListener("click", () => { F.color = F.color === c ? "" : c; F.paint(); });
+    F.colors.appendChild(b);
+  });
+  EMOJIS.forEach(e => {
+    const b = document.createElement("button");
+    b.type = "button"; b.dataset.e = e; b.textContent = e;
+    // Повторное нажатие снимает выбор
+    b.addEventListener("click", () => { F.emoji = F.emoji === e ? "" : e; F.paint(); });
+    F.emojis.appendChild(b);
+  });
+  CATS.forEach(k => {
+    const o = document.createElement("option");
+    o.value = k; F.cat.appendChild(o);
+  });
+
+  // Календарь: открываем календарь браузера, выбранную дату пишем в поле
+  F.calBtn.addEventListener("click", () => {
+    const iso = parseDate(F.date.value);
+    if (iso) F.picker.value = iso;
+    try { F.picker.showPicker(); } catch (e) { F.picker.focus(); F.picker.click(); }
+  });
+  F.picker.addEventListener("change", () => { if (F.picker.value) F.date.value = showDate(F.picker.value); });
+
+  // Быстрые даты
+  F.quick.forEach(b => b.addEventListener("click", () => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    let d;
+    if (b.dataset.q === "week") d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 7);
+    else if (b.dataset.q === "month") d = addMonths(today, 1);
+    else d = new Date(today.getFullYear() + 1, 0, 1);
+    F.date.value = showDate(isoOf(d));
+  }));
+
+  F.fmtBtns.forEach(b => b.addEventListener("click", () => {
+    state.fmt = b.dataset.fmt; store("fmt", state.fmt); applyFmt(); renderTimers();
+  }));
+
+  F.set = (v) => {
+    F.name.value = v.name; F.date.value = v.date ? showDate(v.date) : ""; F.time.value = v.time;
+    F.cat.value = v.cat; F.repeat.checked = v.repeat; F.color = v.color; F.emoji = v.emoji; F.paint();
+  };
+  F.clear = () => F.set({ name: "", date: "", time: "", cat: "other", repeat: false, color: DEFAULT_COLOR, emoji: "" });
+  // Проверяем поля: либо {error}, либо {data}
+  F.read = () => {
+    const tr = t();
+    const name = F.name.value;
+    if (!name.trim()) return { error: tr.errName };
+    const date = parseDate(F.date.value);
+    if (!date) return { error: tr.errDate + fmtText() };
+    const time = parseTime(F.time.value);
+    if (time === null) return { error: tr.errTime };
+    return { data: { name, date, time, cat: F.cat.value, repeat: F.repeat.checked, color: F.color, emoji: F.emoji } };
+  };
+  F.translate = () => {
+    const tr = t();
+    F.time.placeholder = tr.timePh;
+    [...F.cat.options].forEach(o => { o.textContent = tr.cats[o.value]; });
+    [...F.colors.children].forEach((b, i) => { b.title = tr.colorNames[i]; b.setAttribute("aria-label", tr.colorNames[i]); });
+    F.calBtn.title = tr.calendar; F.calBtn.setAttribute("aria-label", tr.calendar);
+  };
+  F.clear();
+  return F;
+}
+
+/* ===== Сколько осталось (или прошло): годы, месяцы, дни, часы, минуты, секунды ===== */
 function addMonths(date, n) {
   const d = new Date(date);
   const day = d.getDate();
@@ -426,141 +883,521 @@ function addMonths(date, n) {
   d.setDate(Math.min(day, last));
   return d;
 }
-function timeLeft(target) {
-  const now = new Date();
-  if (target <= now) return null;
-  let months = (target.getFullYear() - now.getFullYear()) * 12 + (target.getMonth() - now.getMonth());
-  if (addMonths(now, months) > target) months--;
-  let rest = Math.floor((target - addMonths(now, months)) / 1000);
+// Разница между from и to (from раньше to)
+function diffParts(from, to) {
+  let months = (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth());
+  if (addMonths(from, months) > to) months--;
+  let rest = Math.floor((to - addMonths(from, months)) / 1000);
   const days = Math.floor(rest / 86400); rest -= days * 86400;
   const hours = Math.floor(rest / 3600); rest -= hours * 3600;
   const minutes = Math.floor(rest / 60);
   const seconds = rest - minutes * 60;
   return [Math.floor(months / 12), months % 12, days, hours, minutes, seconds];
 }
+// Первая ненулевая единица: нули слева не показываем
+function firstNonZero(parts) {
+  const i = parts.findIndex(n => n > 0);
+  return i === -1 ? 5 : i;
+}
 
-/* ===== Список таймеров ===== */
-function saveTimers() { store("timers", state.timers); }
+// Когда наступит событие. У повторяющегося — ближайшая дата в будущем.
+// prev — прошлый раз, когда повторяющееся событие наступало.
+function targetOf(timer, now) {
+  const [y, m, d] = timer.date.split("-").map(Number);
+  const [hh, mm] = timer.time ? timer.time.split(":").map(Number) : [0, 0];
+  // 29 февраля в невисокосный год → 28 февраля
+  const at = (year) => new Date(year, m - 1, Math.min(d, new Date(year, m, 0).getDate()), hh, mm);
+  let year = y;
+  let target = at(year);
+  if (timer.repeat) while (target <= now) target = at(++year);
+  return { target, prev: year > y ? at(year - 1) : null };
+}
+function progressOf(timer, target, prev, now) {
+  if (target <= now) return 1;
+  const start = prev ? Math.max(timer.created, +prev) : timer.created;
+  const total = target - start;
+  if (total <= 0) return 1;
+  return Math.min(1, Math.max(0, (now - start) / total));
+}
+
+/* ===== Карточка таймера ===== */
+// Без цвета: нет полоски слева, полоска прогресса серая
+function setTimerColor(el, color) {
+  if (color) { el.style.setProperty("--c", color); el.classList.add("colored"); }
+  else { el.style.removeProperty("--c"); el.classList.remove("colored"); }
+}
+function buildUnits(tr) {
+  const units = document.createElement("div");
+  units.className = "units";
+  tr.units.forEach(name => {
+    const cell = document.createElement("div");
+    const b = document.createElement("b"); b.textContent = "0";
+    const s = document.createElement("span"); s.textContent = name;
+    cell.append(b, s);
+    units.appendChild(cell);
+  });
+  return units;
+}
+function buildProgress() {
+  const p = document.createElement("div");
+  p.className = "progress";
+  p.innerHTML = '<div class="bar"><i></i></div><span class="pct">0%</span>';
+  return p;
+}
+function agoLabel(tr) {
+  const p = document.createElement("p");
+  p.className = "ago-label"; p.textContent = tr.ago; p.hidden = true;
+  return p;
+}
+
+function buildCard(timer, tr, target) {
+  const li = document.createElement("li");
+  li.className = "timer";
+  li.dataset.id = timer.id;
+  setTimerColor(li, timer.color);
+
+  // Верх: эмодзи и название, категория, булавка
+  const top = document.createElement("div");
+  top.className = "top";
+  const h = document.createElement("h2");
+  const title = document.createElement("button");
+  title.type = "button"; title.className = "title-btn";
+  if (timer.emoji) {
+    const e = document.createElement("span");
+    e.className = "emo"; e.textContent = timer.emoji;
+    title.appendChild(e);
+  }
+  title.append(timer.name);
+  title.addEventListener("click", () => openBig(timer.id));
+  h.appendChild(title);
+  const tag = document.createElement("span");
+  tag.className = "tag"; tag.textContent = tr.cats[timer.cat];
+  const pin = document.createElement("button");
+  pin.type = "button"; pin.className = "pin" + (timer.pinned ? " on" : ""); pin.textContent = "📌";
+  pin.title = timer.pinned ? tr.unpin : tr.pin; pin.setAttribute("aria-label", pin.title);
+  pin.setAttribute("aria-pressed", timer.pinned);
+  pin.addEventListener("click", () => { timer.pinned = !timer.pinned; saveTimers(); renderTimers(); });
+  top.append(h, tag, pin);
+
+  // Дата, время, значок повтора
+  const when = document.createElement("p");
+  when.className = "when";
+  when.textContent = showDate(isoOf(target)) + (timer.time ? " " + timer.time : "");
+  if (timer.repeat) {
+    const r = document.createElement("span");
+    r.textContent = " 🔁"; r.title = tr.repeatOn;
+    when.appendChild(r);
+  }
+
+  const actions = document.createElement("div");
+  actions.className = "actions";
+
+  const plus = document.createElement("button");
+  plus.type = "button"; plus.className = "btn-blue"; plus.textContent = "+";
+  plus.title = tr.addNote; plus.setAttribute("aria-label", tr.addNote);
+  plus.addEventListener("click", () => openNote(timer.id));
+  actions.appendChild(plus);
+
+  // Кнопка с глазом появляется, только если заметка сохранена
+  if (timer.note) {
+    const eye = document.createElement("button");
+    eye.type = "button"; eye.className = "icon-btn";
+    eye.title = tr.viewNote; eye.setAttribute("aria-label", tr.viewNote);
+    eye.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+    eye.addEventListener("click", () => openView(timer.id));
+    actions.appendChild(eye);
+  }
+
+  const edit = document.createElement("button");
+  edit.type = "button"; edit.className = "btn-grey"; edit.textContent = tr.edit;
+  edit.addEventListener("click", () => openTimerEdit(timer.id));
+  actions.appendChild(edit);
+
+  const del = document.createElement("button");
+  del.type = "button"; del.className = "btn-red"; del.textContent = tr.del;
+  del.addEventListener("click", () => openConfirm(timer.id));
+  actions.appendChild(del);
+
+  li.append(top, when, agoLabel(tr), buildUnits(tr), buildProgress(), actions);
+  return li;
+}
+
+// Компактный вид: одна строка, нажатие открывает крупный режим
+function buildCompact(timer) {
+  const li = document.createElement("li");
+  li.className = "timer compact";
+  li.dataset.id = timer.id;
+  setTimerColor(li, timer.color);
+  const row = document.createElement("button");
+  row.type = "button"; row.className = "row";
+  if (timer.emoji) {
+    const e = document.createElement("span");
+    e.textContent = timer.emoji;
+    row.appendChild(e);
+  }
+  const name = document.createElement("span");
+  name.className = "name"; name.textContent = timer.name;
+  const short = document.createElement("span");
+  short.className = "short";
+  row.append(name, short);
+  if (timer.pinned) {
+    const p = document.createElement("span");
+    p.textContent = "📌";
+    row.appendChild(p);
+  }
+  row.addEventListener("click", () => openBig(timer.id));
+  li.appendChild(row);
+  return li;
+}
+
+// Обновляем цифры, полоску и строку компактного вида у одного таймера
+function updateEl(el, timer, now) {
+  if (!timer) return;
+  const tr = t();
+  const { target, prev } = targetOf(timer, now);
+  const future = target > now;
+  const parts = future ? diffParts(now, target) : diffParts(target, now);
+  const first = firstNonZero(parts);
+  el.classList.toggle("past", !future);
+
+  const units = el.querySelector(".units");
+  if (units) [...units.children].forEach((cell, i) => {
+    cell.hidden = i < first;
+    cell.firstChild.textContent = parts[i];
+  });
+  const ago = el.querySelector(".ago-label");
+  if (ago) ago.hidden = future;
+
+  const pct = Math.floor(progressOf(timer, target, prev, now) * 100);
+  const bar = el.querySelector(".bar i");
+  if (bar) bar.style.width = pct + "%";
+  const pctText = el.querySelector(".pct");
+  if (pctText) pctText.textContent = pct + "%";
+
+  const short = el.querySelector(".short");
+  if (short) {
+    const text = parts.slice(first, first + 3).map((n, k) => n + " " + tr.unitsShort[first + k]).join(" ");
+    short.textContent = future ? text : tr.ago + " " + text;
+  }
+}
+function updateAll() {
+  const now = new Date();
+  document.querySelectorAll("#list [data-id], #pastList [data-id]").forEach(el => updateEl(el, findTimer(el.dataset.id), now));
+  if (bigId) updateEl($("big"), findTimer(bigId), now);
+}
+
+/* ===== Список: поиск, категория, сортировка, закрепление, «Уже было» ===== */
+function renderCats() {
+  const tr = t();
+  const box = $("cats");
+  box.innerHTML = "";
+  ["all", ...CATS].forEach(k => {
+    const n = k === "all" ? state.timers.length : state.timers.filter(x => x.cat === k).length;
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = (k === "all" ? tr.all : tr.cats[k]) + " (" + n + ")";
+    b.classList.toggle("on", state.cat === k);
+    b.addEventListener("click", () => { state.cat = k; store("cat", k); renderTimers(); });
+    box.appendChild(b);
+  });
+}
 
 function renderTimers() {
-  const list = $("list");
-  list.innerHTML = "";
   const tr = t();
-  // Сверху ближайшие события, снизу самые дальние
-  const sorted = [...state.timers].sort((a, b) => a.date.localeCompare(b.date));
+  const now = new Date();
+  // Пока «Advanced settings» выключена: все таймеры, по дате, обычный вид.
+  // Выбранные раньше поиск, категория, сортировка и компактный вид запоминаются и вернутся.
+  const search = state.adv ? state.search : "";
+  const cat = state.adv ? state.cat : "all";
+  const sort = state.adv ? state.sort : "date";
+  const compact = state.adv && state.compact;
 
-  sorted.forEach(timer => {
-    const li = document.createElement("li");
-    li.className = "timer";
-    li.dataset.id = timer.id;
+  const q = search.trim().toLocaleLowerCase();
+  const shown = state.timers
+    .filter(x => (cat === "all" || x.cat === cat) && (!q || x.name.toLocaleLowerCase().includes(q)))
+    .map(x => ({ x, target: targetOf(x, now).target }));
+  const future = shown.filter(o => o.target > now);
+  const past = shown.filter(o => o.target <= now);
 
-    const h = document.createElement("h2");
-    h.textContent = timer.name;
-    const when = document.createElement("p");
-    when.className = "when";
-    when.textContent = showDate(timer.date);
+  // Закреплённые всегда выше; дальше — по выбранной сортировке
+  const cmp = (dir) => (a, b) => {
+    if (a.x.pinned !== b.x.pinned) return a.x.pinned ? -1 : 1;
+    if (sort === "name") return a.x.name.localeCompare(b.x.name, state.lang, { sensitivity: "base" });
+    if (sort === "created") return b.x.created - a.x.created;
+    return dir * (a.target - b.target);
+  };
+  future.sort(cmp(1));   // ближайшие сверху
+  past.sort(cmp(-1));    // недавно прошедшие сверху
 
-    const units = document.createElement("div");
-    units.className = "units";
-    tr.units.forEach(name => {
-      const cell = document.createElement("div");
-      cell.innerHTML = "<b>0</b><span></span>";
-      cell.querySelector("span").textContent = name;
-      units.appendChild(cell);
-    });
-    const passed = document.createElement("p");
-    passed.className = "passed";
-    passed.textContent = tr.passed;
-    passed.hidden = true;
-
-    const actions = document.createElement("div");
-    actions.className = "actions";
-
-    const plus = document.createElement("button");
-    plus.type = "button"; plus.className = "btn-blue"; plus.textContent = "+";
-    plus.title = tr.addNote; plus.setAttribute("aria-label", tr.addNote);
-    plus.addEventListener("click", () => openEdit(timer.id));
-    actions.appendChild(plus);
-
-    // Кнопка с глазом появляется, только если заметка сохранена
-    if (timer.note) {
-      const eye = document.createElement("button");
-      eye.type = "button"; eye.className = "icon-btn";
-      eye.title = tr.viewNote; eye.setAttribute("aria-label", tr.viewNote);
-      eye.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
-      eye.addEventListener("click", () => openView(timer.id));
-      actions.appendChild(eye);
-    }
-
-    const del = document.createElement("button");
-    del.type = "button"; del.className = "btn-red"; del.textContent = tr.del;
-    del.addEventListener("click", () => {
-      state.timers = state.timers.filter(x => x.id !== timer.id);
-      saveTimers(); renderTimers();
-    });
-    actions.appendChild(del);
-
-    li.append(h, when, units, passed, actions);
-    list.appendChild(li);
-  });
-  tick();
+  const build = (o) => compact ? buildCompact(o.x) : buildCard(o.x, tr, o.target);
+  $("list").replaceChildren(...future.map(build));
+  $("pastList").replaceChildren(...past.map(build));
+  $("pastBlock").hidden = past.length === 0;
+  $("pastTitle").textContent = tr.pastTitle + " (" + past.length + ")";
+  $("sort").value = state.sort;
+  $("compact").checked = state.compact;
+  renderCats();
+  renderBig();
+  updateAll();
 }
 
-// Каждую секунду обновляем только цифры
+$("search").addEventListener("input", () => { state.search = $("search").value; renderTimers(); });
+$("sort").addEventListener("change", () => { state.sort = $("sort").value; store("sort", state.sort); renderTimers(); });
+$("compact").addEventListener("change", () => { state.compact = $("compact").checked; store("compact", state.compact); renderTimers(); });
+
+/* ===== Кнопка «Advanced settings» ===== */
+function applyAdv() {
+  const root = document.documentElement;
+  if (state.adv) root.dataset.adv = ""; else delete root.dataset.adv;
+  $("advBtn").classList.toggle("on", state.adv);
+  $("advBtn").setAttribute("aria-pressed", state.adv);
+}
+$("advBtn").addEventListener("click", () => {
+  state.adv = !state.adv; store("adv", state.adv);
+  applyAdv(); renderTimers();
+});
+
+/* ===== Каждую секунду: цифры и момент события ===== */
+const watch = new Map();   // id → когда событие наступит (если ещё не наступило)
 function tick() {
-  document.querySelectorAll(".timer").forEach(li => {
-    const timer = state.timers.find(x => x.id === li.dataset.id);
-    if (!timer) return;
-    const left = timeLeft(toDate(timer.date));
-    li.querySelector(".units").hidden = !left;
-    li.querySelector(".passed").hidden = !!left;
-    if (left) li.querySelectorAll(".units b").forEach((b, i) => { b.textContent = left[i]; });
+  const now = new Date();
+  const fired = [];
+  state.timers.forEach(timer => {
+    const { target } = targetOf(timer, now);
+    const was = watch.get(timer.id);
+    // Событие наступило, пока страница открыта
+    if (was != null && was <= +now) fired.push(timer);
+    watch.set(timer.id, target > now ? +target : null);
   });
+  if (fired.length) { renderTimers(); celebrate(fired); }
+  else updateAll();
 }
-setInterval(tick, 1000);
 
 /* ===== Добавить таймер ===== */
+const addF = makeFields($("form"), $("error"), "f-", true);
 $("form").addEventListener("submit", (e) => {
   e.preventDefault();
-  const tr = t();
-  const name = $("name").value;
-  if (!name.trim()) { $("error").textContent = tr.errName; return; }
-  const date = parseDate($("date").value);
-  if (!date) { $("error").textContent = tr.errDate + fmtText(); return; }
+  const r = addF.read();
+  if (r.error) { $("error").textContent = r.error; return; }
   $("error").textContent = "";
-  state.timers.push({ id: String(Date.now()) + Math.random().toString(16).slice(2, 6), name, date, note: "" });
+  // Без «Advanced settings»: категория «Другое» и без повтора
+  if (!state.adv) { r.data.cat = "other"; r.data.repeat = false; }
+  state.timers.push({ id: newId(), ...r.data, note: "", pinned: false, created: Date.now() });
   saveTimers();
-  $("name").value = ""; $("date").value = "";
+  addF.clear();
   renderTimers();
 });
 
+/* ===== Окно «Изменить таймер» ===== */
+const editF = makeFields($("timerBody"), $("timerError"), "e-", false);
+let editTimerId = null;
+function openTimerEdit(id) {
+  const timer = findTimer(id);
+  if (!timer) return;
+  editTimerId = id;
+  // У повторяющегося таймера показываем ближайшую дату
+  editF.set({ ...timer, date: isoOf(targetOf(timer, new Date()).target) });
+  $("timerError").textContent = "";
+  $("timerDlg").showModal();
+}
+$("timerSave").addEventListener("click", () => {
+  const timer = findTimer(editTimerId);
+  if (!timer) { $("timerDlg").close(); return; }
+  const r = editF.read();
+  if (r.error) { $("timerError").textContent = r.error; return; }
+  // Без «Advanced settings» категория и повтор скрыты — оставляем их как были у таймера
+  if (!state.adv) { delete r.data.cat; delete r.data.repeat; }
+  Object.assign(timer, r.data);   // заметка, закрепление и дата создания остаются
+  saveTimers(); renderTimers();
+  $("timerDlg").close();
+});
+$("timerCancel").addEventListener("click", () => $("timerDlg").close());
+
+/* ===== Удаление с подтверждением ===== */
+let deletingId = null;
+function openConfirm(id) {
+  const timer = findTimer(id);
+  if (!timer) return;
+  deletingId = id;
+  $("confirmText").textContent = t().confirmDel.replace("{name}", timer.name);
+  $("confirmDlg").showModal();
+}
+$("confirmYes").addEventListener("click", () => {
+  state.timers = state.timers.filter(x => x.id !== deletingId);
+  saveTimers(); renderTimers();
+  $("confirmDlg").close();
+});
+$("confirmNo").addEventListener("click", () => $("confirmDlg").close());
+
 /* ===== Заметка: «+» и глаз ===== */
-let editingId = null;
-function openEdit(id) {
-  const timer = state.timers.find(x => x.id === id);
-  editingId = id;
+let noteId = null;
+function openNote(id) {
+  const timer = findTimer(id);
+  noteId = id;
   $("editTitle").textContent = t().note + ": " + timer.name;
   $("noteText").value = timer.note || "";
   $("editDlg").showModal();
 }
 $("saveBtn").addEventListener("click", () => {
-  const timer = state.timers.find(x => x.id === editingId);
+  const timer = findTimer(noteId);
   if (timer) { timer.note = $("noteText").value; saveTimers(); renderTimers(); }
   $("editDlg").close();
 });
 function openView(id) {
-  const timer = state.timers.find(x => x.id === id);
+  const timer = findTimer(id);
   $("viewTitle").textContent = t().note + ": " + timer.name;
   $("viewText").textContent = timer.note;
   $("viewDlg").showModal();
 }
 document.querySelectorAll("dialog .close").forEach(b => b.addEventListener("click", () => b.closest("dialog").close()));
 
+/* ===== Крупный режим ===== */
+let bigId = null;
+function openBig(id) {
+  bigId = id;
+  $("big").hidden = false;
+  document.body.style.overflow = "hidden";
+  renderBig();
+  updateAll();
+  $("bigClose").focus();
+}
+function closeBig() {
+  bigId = null;
+  $("big").hidden = true;
+  document.body.style.overflow = "";
+}
+function renderBig() {
+  if (!bigId) return;
+  const timer = findTimer(bigId);
+  if (!timer) { closeBig(); return; }
+  const tr = t();
+  const body = $("bigBody");
+  body.innerHTML = "";
+  setTimerColor($("big"), timer.color);
+  if (timer.emoji) {
+    const e = document.createElement("div");
+    e.className = "big-emoji"; e.textContent = timer.emoji;
+    body.appendChild(e);
+  }
+  const h = document.createElement("h2");
+  h.textContent = timer.name;
+  body.append(h, agoLabel(tr), buildUnits(tr), buildProgress());
+}
+$("bigClose").addEventListener("click", closeBig);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && bigId) closeBig(); });
+
+/* ===== Момент события: сигнал, конфетти, сообщение ===== */
+let audio = null;
+// Браузер разрешает звук только после того, как человек что-то нажал на странице
+function unlockAudio() {
+  try {
+    if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
+    if (audio.state === "suspended") audio.resume();
+  } catch (e) {}
+}
+document.addEventListener("pointerdown", unlockAudio);
+document.addEventListener("keydown", unlockAudio);
+
+function beep() {
+  unlockAudio();
+  if (!audio) return;
+  const t0 = audio.currentTime;
+  const osc = audio.createOscillator();
+  const gain = audio.createGain();
+  osc.frequency.setValueAtTime(880, t0);
+  osc.frequency.setValueAtTime(1320, t0 + 0.5);
+  gain.gain.setValueAtTime(0.0001, t0);
+  gain.gain.exponentialRampToValueAtTime(0.25, t0 + 0.03);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 1);
+  osc.connect(gain); gain.connect(audio.destination);
+  osc.start(t0); osc.stop(t0 + 1);
+}
+
+function confetti() {
+  const c = document.createElement("canvas");
+  c.className = "confetti";
+  document.body.appendChild(c);
+  const W = innerWidth, H = innerHeight, dpr = window.devicePixelRatio || 1;
+  c.width = W * dpr; c.height = H * dpr;
+  const ctx = c.getContext("2d");
+  ctx.scale(dpr, dpr);
+  const bits = Array.from({ length: 160 }, () => ({
+    x: Math.random() * W, y: -20 - Math.random() * H * 0.5,
+    vx: (Math.random() - 0.5) * 4, vy: 2 + Math.random() * 4,
+    r: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.3,
+    w: 6 + Math.random() * 6, h: 4 + Math.random() * 4,
+    color: COLORS[Math.floor(Math.random() * COLORS.length)]
+  }));
+  const start = performance.now();
+  function frame(time) {
+    ctx.clearRect(0, 0, W, H);
+    bits.forEach(b => {
+      b.x += b.vx; b.y += b.vy; b.vy += 0.05; b.r += b.vr;
+      ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.r);
+      ctx.fillStyle = b.color; ctx.fillRect(-b.w / 2, -b.h / 2, b.w, b.h);
+      ctx.restore();
+    });
+    if (time - start < 3000) requestAnimationFrame(frame); else c.remove();
+  }
+  requestAnimationFrame(frame);
+}
+
+function celebrate(timers) {
+  const tr = t();
+  beep();
+  confetti();
+  $("celebText").textContent = timers.map(x => tr.happened.replace("{name}", x.name)).join("\n");
+  if (!$("celebDlg").open) $("celebDlg").show();
+}
+$("celebOk").addEventListener("click", () => $("celebDlg").close());
+
+/* ===== Файл: сохранить и загрузить ===== */
+$("exportBtn").addEventListener("click", () => {
+  const data = JSON.stringify({ app: "event-timers", version: 1, timers: state.timers }, null, 2);
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([data], { type: "application/json" }));
+  const d = new Date();
+  a.download = "timers-" + pad(d.getDate()) + "-" + pad(d.getMonth() + 1) + "-" + d.getFullYear() + ".json";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+
+let pendingImport = null;
+$("importBtn").addEventListener("click", () => $("fileInput").click());
+$("fileInput").addEventListener("change", async () => {
+  const file = $("fileInput").files[0];
+  $("fileInput").value = "";   // чтобы тот же файл можно было выбрать ещё раз
+  if (!file) return;
+  let list = null;
+  try {
+    const data = JSON.parse(await file.text());
+    const arr = Array.isArray(data) ? data : data && data.timers;
+    if (Array.isArray(arr) && arr.every(isValidTimer)) list = arr.map(normalize);
+  } catch (e) {}
+  if (!list) { $("fileError").textContent = t().badFile; return; }   // таймеры не трогаем
+  $("fileError").textContent = "";
+  pendingImport = list;
+  $("importDlg").showModal();
+});
+$("importReplace").addEventListener("click", () => {
+  state.timers = pendingImport;
+  saveTimers(); renderTimers(); $("importDlg").close();
+});
+$("importAppend").addEventListener("click", () => {
+  const ids = new Set(state.timers.map(x => x.id));
+  pendingImport.forEach(x => { if (ids.has(x.id)) x.id = newId(); state.timers.push(x); });
+  saveTimers(); renderTimers(); $("importDlg").close();
+});
+$("importCancel").addEventListener("click", () => $("importDlg").close());
+
 /* ===== Запуск ===== */
 applyTheme();
 applySize();
 applyFmt();
+applyAdv();
 applyLang();
+tick();
+setInterval(tick, 1000);
 </script>
 </body>
 </html>
